@@ -1,6 +1,8 @@
-# Loop Creator
+# makeloops.online
 
 A web-based music loop creator with drum pads, a melodic keyboard, multiple synth types, manual loop cropping, unlimited layers, and WAV/MP3 export.
+
+Live site: [makeloops.online](https://makeloops.online)
 
 ## Features
 
