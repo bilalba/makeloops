@@ -20,7 +20,7 @@ class FilteredNoiseSynth {
     }).connect(this.filter)
   }
 
-  triggerAttackRelease(duration: Tone.Unit.Time, time?: number, velocity?: number) {
+  triggerAttackRelease(time?: number, velocity?: number) {
     // Stop any previous sound to prevent voice stacking
     this.noise.triggerRelease(time)
     this.noise.triggerAttack(time, velocity)
@@ -143,7 +143,7 @@ export class DrumKit {
     } else if (synth instanceof Tone.NoiseSynth) {
       synth.triggerAttackRelease('8n', t, vel)
     } else if (synth instanceof FilteredNoiseSynth) {
-      synth.triggerAttackRelease('8n', t, vel)
+      synth.triggerAttackRelease(t, vel)
     }
   }
 

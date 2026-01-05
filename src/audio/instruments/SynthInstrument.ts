@@ -16,54 +16,76 @@ export class SynthInstrument {
     const maxPolyphony = 16
     switch (type) {
       case 'piano':
-        return new Tone.PolySynth(Tone.Synth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle' },
           envelope: { attack: 0.005, decay: 0.3, sustain: 0.4, release: 0.8 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       case 'synth':
-        return new Tone.PolySynth(Tone.Synth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sawtooth' },
           envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       case 'pluck':
-        return new Tone.PolySynth(Tone.Synth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'triangle' },
           envelope: { attack: 0.001, decay: 0.4, sustain: 0, release: 0.1 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       case 'fm':
-        return new Tone.PolySynth(Tone.FMSynth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.FMSynth, {
           harmonicity: 3,
           modulationIndex: 10,
           envelope: { attack: 0.01, decay: 0.3, sustain: 0.4, release: 0.5 },
           modulation: { type: 'sine' },
           modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.3, release: 0.3 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       case 'am':
-        return new Tone.PolySynth(Tone.AMSynth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.AMSynth, {
           harmonicity: 2,
           envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.3 },
           modulation: { type: 'square' },
           modulationEnvelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.2 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       case 'membrane':
-        return new Tone.PolySynth(Tone.Synth, {
-          maxPolyphony,
+        {
+          const synth = new Tone.PolySynth(Tone.Synth, {
           oscillator: { type: 'sine' },
           envelope: { attack: 0.001, decay: 0.5, sustain: 0.1, release: 0.4 },
-        })
+          })
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
 
       default:
-        return new Tone.PolySynth(Tone.Synth, { maxPolyphony })
+        {
+          const synth = new Tone.PolySynth(Tone.Synth)
+          synth.maxPolyphony = maxPolyphony
+          return synth
+        }
     }
   }
 
