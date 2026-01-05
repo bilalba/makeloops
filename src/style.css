@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* shadcn dark theme colors - custom purple/indigo aesthetic */
+  --color-background: oklch(0.145 0.02 280);
+  --color-foreground: oklch(0.93 0.01 280);
+  --color-card: oklch(0.17 0.025 280);
+  --color-card-foreground: oklch(0.93 0.01 280);
+  --color-popover: oklch(0.17 0.025 280);
+  --color-popover-foreground: oklch(0.93 0.01 280);
+  --color-primary: oklch(0.65 0.18 270);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-secondary: oklch(0.25 0.03 280);
+  --color-secondary-foreground: oklch(0.93 0.01 280);
+  --color-muted: oklch(0.22 0.025 280);
+  --color-muted-foreground: oklch(0.6 0.02 280);
+  --color-accent: oklch(0.25 0.03 280);
+  --color-accent-foreground: oklch(0.93 0.01 280);
+  --color-destructive: oklch(0.55 0.2 25);
+  --color-destructive-foreground: oklch(0.98 0 0);
+  --color-border: oklch(0.3 0.03 280);
+  --color-input: oklch(0.3 0.03 280);
+  --color-ring: oklch(0.65 0.18 270);
+
+  /* Chart colors */
+  --color-chart-1: oklch(0.65 0.18 270);
+  --color-chart-2: oklch(0.6 0.15 180);
+  --color-chart-3: oklch(0.55 0.12 60);
+  --color-chart-4: oklch(0.65 0.15 140);
+  --color-chart-5: oklch(0.6 0.18 30);
+
+  /* Custom app colors */
+  --color-surface: oklch(0.16 0.02 280);
+  --color-surface-elevated: oklch(0.19 0.025 280);
+
+  /* Radius */
+  --radius: 0.625rem;
+
+  /* Font */
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, monospace;
+}
+
+/* Base styles */
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar for dark theme */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-foreground);
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
