@@ -120,8 +120,27 @@ async function handleDrumTrigger(sound: DrumSound) {
     <div class="min-h-screen flex flex-col bg-background" @click="handleFirstInteraction">
       <!-- Header -->
       <header class="flex items-center justify-between px-6 py-4 border-b border-border bg-card/30">
-        <h1 class="text-2xl font-bold">
-          makeloops.online
+        <h1 class="text-2xl font-bold flex items-center gap-2">
+          <span>makeloops.online</span>
+          <a
+            class="text-muted-foreground hover:text-foreground transition-colors"
+            href="https://github.com/bilalba/makeloops"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Makeloops GitHub repository"
+          >
+            <svg
+              class="h-5 w-5"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <path
+                fill="currentColor"
+                d="M12 .5C5.65.5.5 5.64.5 12c0 5.1 3.29 9.42 7.86 10.95.58.1.8-.25.8-.56 0-.28-.02-1.22-.02-2.22-2.9.53-3.65-.71-3.88-1.36-.13-.33-.7-1.36-1.2-1.63-.41-.22-1-.76-.02-.77.92-.02 1.58.85 1.8 1.2 1.05 1.77 2.73 1.27 3.4.97.1-.76.41-1.27.75-1.56-2.56-.29-5.24-1.28-5.24-5.68 0-1.25.44-2.27 1.17-3.07-.12-.29-.51-1.47.12-3.06 0 0 .96-.31 3.15 1.17a10.7 10.7 0 0 1 5.74 0c2.19-1.48 3.15-1.17 3.15-1.17.63 1.59.24 2.77.12 3.06.73.8 1.17 1.82 1.17 3.07 0 4.41-2.69 5.39-5.26 5.67.42.36.8 1.08.8 2.18 0 1.57-.02 2.84-.02 3.23 0 .31.22.67.8.56A11.52 11.52 0 0 0 23.5 12C23.5 5.64 18.36.5 12 .5Z"
+              />
+            </svg>
+          </a>
         </h1>
         <InstrumentSelector />
       </header>
