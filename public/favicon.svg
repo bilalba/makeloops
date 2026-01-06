@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#1f2937"/>
+
+  <!-- Circular loop arrow - starts at top, goes clockwise, ends at left -->
+  <path d="M32 14 A18 18 0 1 1 14 32"
+        fill="none"
+        stroke="#14b8a6"
+        stroke-width="5"
+        stroke-linecap="round"/>
+
+  <!-- Arrow head connected to arc at top -->
+  <path d="M26 14 L34 7 L34 21 Z" fill="#14b8a6"/>
+
+  <!-- Audio waveform bars - smaller and centered -->
+  <rect x="24" y="30" width="3" height="4" rx="1.5" fill="#ffffff"/>
+  <rect x="28.5" y="27" width="3" height="10" rx="1.5" fill="#ffffff"/>
+  <rect x="33" y="24" width="3" height="16" rx="1.5" fill="#ffffff"/>
+  <rect x="37.5" y="27" width="3" height="10" rx="1.5" fill="#ffffff"/>
+  <rect x="42" y="30" width="3" height="4" rx="1.5" fill="#ffffff"/>
+</svg>

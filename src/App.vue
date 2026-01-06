@@ -12,7 +12,10 @@ import MelodicPad from '@/components/MelodicPad.vue'
 import OctaveSelector from '@/components/OctaveSelector.vue'
 import InstrumentSelector from '@/components/InstrumentSelector.vue'
 import TransportControls from '@/components/TransportControls.vue'
+import RecordControls from '@/components/RecordControls.vue'
 import LooperPanel from '@/components/LooperPanel.vue'
+import InputModeTabs from '@/components/InputModeTabs.vue'
+import GridSequencer from '@/components/GridSequencer.vue'
 import { Card } from '@/components/ui/card'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -23,6 +26,7 @@ const looperStore = useLooperStore()
 
 const drumpadRef = ref<InstanceType<typeof Drumpad> | null>(null)
 const melodicPadRef = ref<InstanceType<typeof MelodicPad> | null>(null)
+const inputMode = ref<'keyboard' | 'grid'>('grid')
 
 // Initialize audio on first user interaction
 async function handleFirstInteraction() {
@@ -147,8 +151,11 @@ async function handleDrumTrigger(sound: DrumSound) {
 
       <!-- Main Content -->
       <main class="flex-1 p-6 flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
-        <!-- Pads Section -->
-        <section class="grid grid-cols-[auto_1fr] gap-6">
+        <!-- Input Mode Tabs -->
+        <InputModeTabs v-model="inputMode" />
+
+        <!-- Pads Section - Keyboard Mode -->
+        <section v-if="inputMode === 'keyboard'" class="grid grid-cols-[auto_1fr] gap-6">
           <Card class="bg-card/50 border-border">
             <Drumpad ref="drumpadRef" @trigger="handleDrumTrigger" />
           </Card>
@@ -162,8 +169,16 @@ async function handleDrumTrigger(sound: DrumSound) {
           </Card>
         </section>
 
+        <!-- Grid Sequencer Mode -->
+        <section v-else>
+          <Card class="bg-card/50 border-border p-4">
+            <GridSequencer />
+          </Card>
+        </section>
+
         <!-- Transport -->
-        <Card class="flex items-center px-6 py-4 bg-card/50 border-border">
+        <Card class="flex items-center gap-6 px-6 py-4 bg-card/50 border-border">
+          <RecordControls v-if="inputMode === 'keyboard'" />
           <TransportControls />
         </Card>
 

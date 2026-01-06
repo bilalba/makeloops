@@ -211,6 +211,21 @@ export const useLooperStore = defineStore('looper', () => {
     }
   }
 
+  // Temporarily mute all layers (for preview without loops)
+  function muteAllLayers() {
+    layers.value.forEach((l) => {
+      loopPlayer.updateLayerMute(l.id, true)
+    })
+  }
+
+  // Restore original mute state for all layers
+  function restoreLayerMuteStates() {
+    layers.value.forEach((l) => {
+      const effectivelyMuted = hasSolo.value ? !l.solo || l.muted : l.muted
+      loopPlayer.updateLayerMute(l.id, effectivelyMuted)
+    })
+  }
+
   return {
     layers,
     isRecording,
@@ -233,5 +248,7 @@ export const useLooperStore = defineStore('looper', () => {
     rescheduleAllLayers,
     recordNoteOn,
     recordNoteOff,
+    muteAllLayers,
+    restoreLayerMuteStates,
   }
 })

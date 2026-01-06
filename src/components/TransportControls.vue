@@ -1,14 +1,10 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from 'vue'
 import { useAudioStore } from '@/stores/audioStore'
-import { useLooperStore } from '@/stores/looperStore'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Circle } from 'lucide-vue-next'
 
 const audioStore = useAudioStore()
-const looperStore = useLooperStore()
 
 const bpmInput = ref(audioStore.bpm)
 
@@ -43,16 +39,6 @@ onUnmounted(() => {
   stopPositionUpdates()
 })
 
-function handleRecord() {
-  if (looperStore.isRecording) {
-    looperStore.stopRecording()
-    audioStore.stopRecording()
-  } else {
-    audioStore.startRecording()
-    looperStore.startRecording()
-  }
-}
-
 function updateBpm() {
   const value = Math.min(300, Math.max(40, bpmInput.value))
   bpmInput.value = value
@@ -62,22 +48,6 @@ function updateBpm() {
 
 <template>
   <div class="flex items-center gap-6">
-    <!-- Record Button -->
-    <Button
-      variant="outline"
-      size="icon"
-      :class="[
-        'h-12 w-12 rounded-full border-2 transition-all',
-        looperStore.isRecording
-          ? 'bg-destructive border-destructive text-destructive-foreground animate-pulse'
-          : 'border-destructive/50 text-destructive hover:bg-destructive/10 hover:border-destructive'
-      ]"
-      @click="handleRecord"
-      title="Record (R)"
-    >
-      <Circle class="h-5 w-5 fill-current" />
-    </Button>
-
     <!-- BPM Control -->
     <div class="flex items-center gap-3">
       <Label class="text-xs uppercase tracking-wider text-muted-foreground">BPM</Label>

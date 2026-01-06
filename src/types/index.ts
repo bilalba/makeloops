@@ -41,3 +41,25 @@ export interface NoteMap {
 }
 
 export type TransportState = 'stopped' | 'playing' | 'recording'
+
+// Grid Sequencer Types
+export type ScaleName =
+  | 'major'
+  | 'minor'
+  | 'pentatonic-major'
+  | 'pentatonic-minor'
+  | 'blues'
+  | 'dorian'
+  | 'mixolydian'
+  | 'chromatic'
+
+export type RootNote = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B'
+
+export type GridMode = 'drums' | 'melodic'
+
+export interface GridCell {
+  active: boolean
+  velocity: number // 0-1, defaults to 0.8
+}
+
+export type GridPattern = GridCell[][]
