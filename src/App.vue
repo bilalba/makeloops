@@ -36,6 +36,11 @@ async function handleFirstInteraction() {
   }
 }
 
+// Handle touch events for mobile audio unlock
+function handleTouch() {
+  handleFirstInteraction()
+}
+
 // Keyboard handling
 useKeyboard({
   onDrumTrigger: async (sound: DrumSound) => {
@@ -121,7 +126,7 @@ async function handleDrumTrigger(sound: DrumSound) {
 
 <template>
   <TooltipProvider>
-    <div class="min-h-screen flex flex-col bg-background" @click="handleFirstInteraction">
+    <div class="min-h-screen flex flex-col bg-background" @click="handleFirstInteraction" @touchstart="handleTouch">
       <!-- Header -->
       <header class="flex items-center justify-between px-6 py-4 border-b border-border bg-card/30">
         <h1 class="text-2xl font-bold flex items-center gap-2">

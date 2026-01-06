@@ -42,15 +42,17 @@ function getFullNote(note: string, octaveOffset: number): string {
   return `${note}${instrumentStore.octave + octaveOffset}`
 }
 
-function handleMouseDown(key: string, note: string, octaveOffset: number) {
+function handleMouseDown(key: string, note: string, octaveOffset: number, e?: Event) {
   if (!note) return
+  e?.preventDefault()
   const fullNote = getFullNote(note, octaveOffset)
   activeKeys.value.add(key)
   emit('noteOn', fullNote)
 }
 
-function handleMouseUp(key: string, note: string, octaveOffset: number) {
+function handleMouseUp(key: string, note: string, octaveOffset: number, e?: Event) {
   if (!note) return
+  e?.preventDefault()
   const fullNote = getFullNote(note, octaveOffset)
   activeKeys.value.delete(key)
   emit('noteOff', fullNote)
@@ -91,9 +93,11 @@ defineExpose({ handleKeyPress })
             'bg-secondary/80 hover:bg-secondary border-border',
             activeKeys.has(item.key) && 'scale-95 bg-purple-600 border-purple-400 text-white'
           )"
-          @mousedown="handleMouseDown(item.key, item.note, item.octaveOffset)"
-          @mouseup="handleMouseUp(item.key, item.note, item.octaveOffset)"
+          @mousedown="handleMouseDown(item.key, item.note, item.octaveOffset, $event)"
+          @mouseup="handleMouseUp(item.key, item.note, item.octaveOffset, $event)"
           @mouseleave="handleMouseLeave(item.key, item.note, item.octaveOffset)"
+          @touchstart="handleMouseDown(item.key, item.note, item.octaveOffset, $event)"
+          @touchend="handleMouseUp(item.key, item.note, item.octaveOffset, $event)"
         >
           <span class="text-sm font-bold">{{ item.key }}</span>
           <span class="text-[10px] opacity-70">{{ item.note }}</span>
@@ -112,9 +116,11 @@ defineExpose({ handleKeyPress })
           'bg-card hover:bg-card/80 border-border text-foreground',
           activeKeys.has(item.key) && 'scale-95 bg-primary border-primary text-primary-foreground'
         )"
-        @mousedown="handleMouseDown(item.key, item.note, item.octaveOffset)"
-        @mouseup="handleMouseUp(item.key, item.note, item.octaveOffset)"
+        @mousedown="handleMouseDown(item.key, item.note, item.octaveOffset, $event)"
+        @mouseup="handleMouseUp(item.key, item.note, item.octaveOffset, $event)"
         @mouseleave="handleMouseLeave(item.key, item.note, item.octaveOffset)"
+        @touchstart="handleMouseDown(item.key, item.note, item.octaveOffset, $event)"
+        @touchend="handleMouseUp(item.key, item.note, item.octaveOffset, $event)"
       >
         <span class="text-sm font-bold">{{ item.key }}</span>
         <span class="text-[10px] opacity-70">{{ item.note }}</span>

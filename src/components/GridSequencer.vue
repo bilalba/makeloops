@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useGridStore } from '@/stores/gridStore'
 import { useLooperStore } from '@/stores/looperStore'
 import { useAudioStore } from '@/stores/audioStore'
+import { useAudioContext } from '@/composables/useAudioContext'
 import GridCell from './GridCell.vue'
 import GridControls from './GridControls.vue'
 import { Button } from '@/components/ui/button'
@@ -12,6 +13,7 @@ import { Play, Square, Trash2, Plus, ChevronDown } from 'lucide-vue-next'
 const gridStore = useGridStore()
 const looperStore = useLooperStore()
 const audioStore = useAudioStore()
+const { initAudio } = useAudioContext()
 
 const showPlayDropdown = ref(false)
 
@@ -22,21 +24,25 @@ function handleAddToLooper() {
   }
 }
 
-function handlePreviewOnly() {
+async function handlePreviewOnly() {
   if (gridStore.isPlaying) {
     gridStore.stopPreview()
     audioStore.stop()
   } else {
+    await initAudio()
+    await audioStore.init()
     gridStore.startPreview(false)
   }
   showPlayDropdown.value = false
 }
 
-function handlePreviewWithLoops() {
+async function handlePreviewWithLoops() {
   if (gridStore.isPlaying) {
     gridStore.stopPreview()
     audioStore.stop()
   } else {
+    await initAudio()
+    await audioStore.init()
     gridStore.startPreview(true)
   }
   showPlayDropdown.value = false

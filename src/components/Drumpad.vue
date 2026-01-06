@@ -23,7 +23,8 @@ const pads: { key: string; sound: DrumSound; label: string }[] = [
   { key: '0', sound: 'crash', label: 'CRASH' },
 ]
 
-function triggerPad(sound: DrumSound, key: string) {
+function triggerPad(sound: DrumSound, key: string, e?: Event) {
+  e?.preventDefault()
   emit('trigger', sound)
   activePads.value.add(key)
   setTimeout(() => activePads.value.delete(key), 100)
@@ -54,7 +55,8 @@ defineExpose({ handleKeyTrigger })
           'aspect-square h-auto flex flex-col items-center justify-center p-2 transition-all duration-75',
           activePads.has(pad.key) && 'scale-95 ring-2 ring-primary'
         )"
-        @mousedown="triggerPad(pad.sound, pad.key)"
+        @mousedown="triggerPad(pad.sound, pad.key, $event)"
+        @touchstart="triggerPad(pad.sound, pad.key, $event)"
       >
         <span class="text-lg font-bold text-primary">{{ pad.key }}</span>
         <span class="text-[10px] text-muted-foreground mt-0.5">{{ pad.label }}</span>

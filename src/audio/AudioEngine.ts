@@ -20,7 +20,15 @@ class AudioEngine {
   }
 
   async init(): Promise<void> {
-    if (this.initialized) return
+    if (this.initialized) {
+      // On mobile, context can get suspended even after init
+      // Always try to resume on user gesture
+      if (Tone.getContext().state === 'suspended') {
+        await Tone.getContext().resume()
+        console.log('Audio context resumed')
+      }
+      return
+    }
     await Tone.start()
     this.initialized = true
     console.log('Audio engine initialized')
