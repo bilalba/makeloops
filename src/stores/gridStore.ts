@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import * as Tone from 'tone'
 import type {
   GridMode,
@@ -48,6 +48,11 @@ export const useGridStore = defineStore('grid', () => {
   const noteDensity = ref(0.3)
   const melodicInstrument = ref<Exclude<InstrumentType, 'drums'>>('piano')
 
+  // Separate pattern storage for each mode (preserved when switching)
+  let drumsPattern: GridPattern = createEmptyPattern(DRUM_ROWS.length, 16)
+  // Key: scaleName, stores pattern for each scale
+  const melodicPatterns: Map<ScaleName, GridPattern> = new Map()
+
   // Tone.js sequence for preview
   let sequence: Tone.Sequence | null = null
 
@@ -95,6 +100,12 @@ export const useGridStore = defineStore('grid', () => {
 
   function clearPattern() {
     pattern.value = createEmptyPattern(rowCount.value, stepCount.value)
+    // Also clear the saved pattern for current mode
+    if (mode.value === 'drums') {
+      drumsPattern = createEmptyPattern(DRUM_ROWS.length, stepCount.value)
+    } else {
+      melodicPatterns.delete(scaleName.value)
+    }
   }
 
   function randomizePattern() {
@@ -114,28 +125,57 @@ export const useGridStore = defineStore('grid', () => {
   }
 
   function setMode(newMode: GridMode) {
-    if (isPlaying.value) {
-      stopPreview()
+    if (newMode === mode.value) return
+
+    // Save current pattern before switching
+    if (mode.value === 'drums') {
+      drumsPattern = JSON.parse(JSON.stringify(pattern.value))
+    } else {
+      melodicPatterns.set(scaleName.value, JSON.parse(JSON.stringify(pattern.value)))
     }
+
     mode.value = newMode
-    // Resize pattern to match new row count
-    pattern.value = createEmptyPattern(
-      newMode === 'drums' ? DRUM_ROWS.length : SCALE_DEFINITIONS[scaleName.value].intervals.length,
-      stepCount.value
-    )
+
+    // Restore pattern for new mode (or create empty)
+    if (newMode === 'drums') {
+      pattern.value = JSON.parse(JSON.stringify(drumsPattern))
+    } else {
+      const savedMelodicPattern = melodicPatterns.get(scaleName.value)
+      if (savedMelodicPattern) {
+        pattern.value = JSON.parse(JSON.stringify(savedMelodicPattern))
+      } else {
+        pattern.value = createEmptyPattern(
+          SCALE_DEFINITIONS[scaleName.value].intervals.length,
+          stepCount.value
+        )
+      }
+    }
+    // Playback continues uninterrupted - playStep handles both patterns
   }
 
   function setScale(newScale: ScaleName) {
-    if (isPlaying.value) {
-      stopPreview()
-    }
-    scaleName.value = newScale
+    if (newScale === scaleName.value) return
+
+    // Save current melodic pattern before switching scales
     if (mode.value === 'melodic') {
-      pattern.value = createEmptyPattern(
-        SCALE_DEFINITIONS[newScale].intervals.length,
-        stepCount.value
-      )
+      melodicPatterns.set(scaleName.value, JSON.parse(JSON.stringify(pattern.value)))
     }
+
+    scaleName.value = newScale
+
+    // Restore pattern for new scale (or create empty) if in melodic mode
+    if (mode.value === 'melodic') {
+      const savedPattern = melodicPatterns.get(newScale)
+      if (savedPattern) {
+        pattern.value = JSON.parse(JSON.stringify(savedPattern))
+      } else {
+        pattern.value = createEmptyPattern(
+          SCALE_DEFINITIONS[newScale].intervals.length,
+          stepCount.value
+        )
+      }
+    }
+    // Playback continues uninterrupted
   }
 
   function setRootNote(note: RootNote) {
@@ -154,22 +194,32 @@ export const useGridStore = defineStore('grid', () => {
     noteDensity.value = Math.max(0.1, Math.min(0.8, density))
   }
 
-  // Playback
+  // Playback - plays BOTH drums and melodic patterns simultaneously
   function playStep(step: number, time: number) {
-    const notes = rowNotes.value
+    // Get the active patterns - use pattern.value for current mode, saved pattern for the other
+    const activeDrumsPattern = mode.value === 'drums' ? pattern.value : drumsPattern
+    const activeMelodicPattern = mode.value === 'melodic' ? pattern.value : melodicPatterns.get(scaleName.value)
 
-    for (let row = 0; row < pattern.value.length; row++) {
-      const cell = pattern.value[row]?.[step]
-      const note = notes[row]
+    // Play drums pattern
+    const drumNotes = DRUM_ROWS.map((d) => d.sound)
+    for (let row = 0; row < activeDrumsPattern.length; row++) {
+      const cell = activeDrumsPattern[row]?.[step]
+      const note = drumNotes[row]
       if (cell?.active && note) {
-        const velocity = cell.velocity
+        const drumKit = instrumentFactory.getDrumKit()
+        drumKit.trigger(note as DrumSound, time, cell.velocity)
+      }
+    }
 
-        if (mode.value === 'drums') {
-          const drumKit = instrumentFactory.getDrumKit()
-          drumKit.trigger(note as DrumSound, time, velocity)
-        } else {
+    // Play melodic pattern (for current scale)
+    if (activeMelodicPattern) {
+      const melodicNotes = getScaleNotesForGrid(rootNote.value, scaleName.value, octave.value)
+      for (let row = 0; row < activeMelodicPattern.length; row++) {
+        const cell = activeMelodicPattern[row]?.[step]
+        const note = melodicNotes[row]
+        if (cell?.active && note) {
           const synth = instrumentFactory.getMelodicInstrument(melodicInstrument.value)
-          synth.triggerAttackRelease(note, '16n', time, velocity)
+          synth.triggerAttackRelease(note, '16n', time, cell.velocity)
         }
       }
     }
@@ -206,11 +256,14 @@ export const useGridStore = defineStore('grid', () => {
     )
 
     sequence.loop = true
-    sequence.start(0)
 
-    // Start transport if not already running
+    // Start transport if not already running, then start sequence
     if (Tone.getTransport().state !== 'started') {
       Tone.getTransport().start()
+      sequence.start(0)
+    } else {
+      // Transport already running - start sequence immediately at current position
+      sequence.start()
     }
   }
 
@@ -297,12 +350,8 @@ export const useGridStore = defineStore('grid', () => {
     }
   }
 
-  // Watch for mode/scale changes to ensure pattern is consistent
-  watch([mode, scaleName], () => {
-    if (isPlaying.value) {
-      stopPreview()
-    }
-  })
+  // Note: mode/scale changes are handled directly in setMode/setScale
+  // which preserve playback state
 
   return {
     // State
