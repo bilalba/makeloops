@@ -88,7 +88,27 @@ export const useGridStore = defineStore('grid', () => {
 
   function toggleCell(row: number, step: number) {
     if (pattern.value[row] && pattern.value[row][step]) {
-      pattern.value[row][step].active = !pattern.value[row][step].active
+      const wasActive = pattern.value[row][step].active
+      pattern.value[row][step].active = !wasActive
+
+      // Play the note immediately when activating a cell
+      if (!wasActive) {
+        const velocity = pattern.value[row][step].velocity
+        if (mode.value === 'drums') {
+          const note = DRUM_ROWS[row]?.sound
+          if (note) {
+            const drumKit = instrumentFactory.getDrumKit()
+            drumKit.trigger(note, Tone.now(), velocity)
+          }
+        } else {
+          const notes = getScaleNotesForGrid(rootNote.value, scaleName.value, octave.value)
+          const note = notes[row]
+          if (note) {
+            const synth = instrumentFactory.getMelodicInstrument(melodicInstrument.value)
+            synth.triggerAttackRelease(note, '16n', Tone.now(), velocity)
+          }
+        }
+      }
     }
   }
 
