@@ -59,10 +59,14 @@ export class LoopPlayer {
     // Store reference to this for closure
     const self = this
 
+    // Extract layer properties to avoid closure issues with Vue reactive proxies
+    const layerId = layer.id
+    const instrumentId = layer.instrumentId
+
     // Create a Part for synchronized playback
     const part = new Tone.Part((time, event) => {
-      const scheduledData = self.scheduledLayers.get(layer.id)
-      if (!scheduledData || layer.muted) return
+      const scheduledData = self.scheduledLayers.get(layerId)
+      if (!scheduledData) return
 
       // Apply volume scaling to velocity
       const volumeMultiplier = self.dbToLinear(scheduledData.volume)
@@ -76,7 +80,7 @@ export class LoopPlayer {
         // For drums, the note is actually the drum sound name
         drumKit.trigger(event.note as DrumSound, time, scaledVelocity)
       } else {
-        const synth = instrumentFactory.getMelodicInstrument(layer.instrumentId)
+        const synth = instrumentFactory.getMelodicInstrument(instrumentId)
         if (event.type === 'noteOn') {
           synth.noteOn(event.note, scaledVelocity, time)
         } else {
@@ -90,7 +94,7 @@ export class LoopPlayer {
     part.start(0)
 
     scheduled.part = part
-    this.scheduledLayers.set(layer.id, scheduled)
+    this.scheduledLayers.set(layerId, scheduled)
   }
 
   private buildCroppedEvents(

@@ -350,6 +350,64 @@ export const useGridStore = defineStore('grid', () => {
     }
   }
 
+  // Get full state for sharing (includes saved patterns)
+  function getStateForSharing() {
+    // Save current pattern to appropriate storage first
+    if (mode.value === 'drums') {
+      drumsPattern = JSON.parse(JSON.stringify(pattern.value))
+    } else {
+      melodicPatterns.set(scaleName.value, JSON.parse(JSON.stringify(pattern.value)))
+    }
+
+    return {
+      mode: mode.value,
+      pattern: pattern.value,
+      drumsPattern: drumsPattern,
+      melodicPatterns: Object.fromEntries(melodicPatterns) as Record<ScaleName, GridPattern>,
+      scaleName: scaleName.value,
+      rootNote: rootNote.value,
+      octave: octave.value,
+      melodicInstrument: melodicInstrument.value,
+    }
+  }
+
+  // Hydrate from shared state
+  function hydrateFromState(state: {
+    mode: GridMode
+    pattern: GridPattern
+    drumsPattern: GridPattern
+    melodicPatterns: Record<ScaleName, GridPattern>
+    scaleName: ScaleName
+    rootNote: RootNote
+    octave: number
+    melodicInstrument: Exclude<InstrumentType, 'drums'>
+  }) {
+    // Stop any preview first
+    stopPreview()
+
+    // Restore saved patterns
+    drumsPattern = state.drumsPattern
+    melodicPatterns.clear()
+    for (const [scale, pat] of Object.entries(state.melodicPatterns)) {
+      melodicPatterns.set(scale as ScaleName, pat)
+    }
+
+    // Restore settings
+    scaleName.value = state.scaleName
+    rootNote.value = state.rootNote
+    octave.value = state.octave
+    melodicInstrument.value = state.melodicInstrument
+    mode.value = state.mode
+    pattern.value = state.pattern
+  }
+
+  // Update grid layer counter (used when loading shared state)
+  function setGridLayerCounter(value: number) {
+    if (value > gridLayerCounter) {
+      gridLayerCounter = value
+    }
+  }
+
   // Note: mode/scale changes are handled directly in setMode/setScale
   // which preserve playback state
 
@@ -385,5 +443,8 @@ export const useGridStore = defineStore('grid', () => {
     convertToMidiEvents,
     getLoopDuration,
     createLoopLayer,
+    getStateForSharing,
+    hydrateFromState,
+    setGridLayerCounter,
   }
 })

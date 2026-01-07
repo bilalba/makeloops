@@ -191,6 +191,35 @@ export const useLooperStore = defineStore('looper', () => {
     layerIdCounter = 0
   }
 
+  function hydrateFromState(newLayers: LoopLayer[]): { maxGridId: number } {
+    // Clear existing layers first
+    clearAllLayers()
+
+    // Update layer counter to avoid ID collisions
+    // Check both "layer-N" and "grid-N" patterns
+    let maxLayerId = 0
+    let maxGridId = 0
+    for (const layer of newLayers) {
+      const layerMatch = layer.id.match(/^layer-(\d+)$/)
+      if (layerMatch && layerMatch[1]) {
+        maxLayerId = Math.max(maxLayerId, parseInt(layerMatch[1], 10))
+      }
+      const gridMatch = layer.id.match(/^grid-(\d+)$/)
+      if (gridMatch && gridMatch[1]) {
+        maxGridId = Math.max(maxGridId, parseInt(gridMatch[1], 10))
+      }
+    }
+    layerIdCounter = maxLayerId
+
+    // Add each layer
+    for (const layer of newLayers) {
+      addLayer(layer)
+    }
+
+    // Return maxGridId so caller can update gridStore's counter
+    return { maxGridId }
+  }
+
   function rescheduleAllLayers() {
     layers.value.forEach((layer) => {
       if (!layer.muted && (!hasSolo.value || layer.solo)) {
@@ -250,5 +279,6 @@ export const useLooperStore = defineStore('looper', () => {
     recordNoteOff,
     muteAllLayers,
     restoreLayerMuteStates,
+    hydrateFromState,
   }
 })

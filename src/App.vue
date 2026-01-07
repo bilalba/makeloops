@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAudioContext } from '@/composables/useAudioContext'
 import { useKeyboard, DRUM_MAP, MELODIC_TOP_ROW, MELODIC_BOTTOM_ROW, OCTAVE_UP_KEYS } from '@/composables/useKeyboard'
+import { useShareableLink } from '@/composables/useShareableLink'
 import { useAudioStore } from '@/stores/audioStore'
 import { useInstrumentStore } from '@/stores/instrumentStore'
 import { useLooperStore } from '@/stores/looperStore'
+import { useGridStore } from '@/stores/gridStore'
 import type { DrumSound } from '@/types'
 
 import Drumpad from '@/components/Drumpad.vue'
@@ -18,15 +20,73 @@ import InputModeTabs from '@/components/InputModeTabs.vue'
 import GridSequencer from '@/components/GridSequencer.vue'
 import { Card } from '@/components/ui/card'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import { Share2, Check, X } from 'lucide-vue-next'
+import { cn } from '@/lib/utils'
 
 const { initialized, initAudio } = useAudioContext()
 const audioStore = useAudioStore()
 const instrumentStore = useInstrumentStore()
 const looperStore = useLooperStore()
+const gridStore = useGridStore()
+const { generateShareLink, parseShareLink, hasShareLink, clearShareLink, copyToClipboard } = useShareableLink()
 
 const drumpadRef = ref<InstanceType<typeof Drumpad> | null>(null)
 const melodicPadRef = ref<InstanceType<typeof MelodicPad> | null>(null)
 const inputMode = ref<'keyboard' | 'grid'>('grid')
+
+// Share button state
+const shareStatus = ref<'idle' | 'success' | 'error'>('idle')
+const shareStatusTimeout = ref<number | null>(null)
+
+async function handleShare() {
+  const link = generateShareLink(
+    audioStore.bpm,
+    looperStore.layers,
+    gridStore.getStateForSharing()
+  )
+
+  const success = await copyToClipboard(link)
+  shareStatus.value = success ? 'success' : 'error'
+
+  if (shareStatusTimeout.value) {
+    clearTimeout(shareStatusTimeout.value)
+  }
+  shareStatusTimeout.value = window.setTimeout(() => {
+    shareStatus.value = 'idle'
+  }, 2000)
+}
+
+// Load state from share link on mount
+onMounted(async () => {
+  if (hasShareLink()) {
+    const state = parseShareLink()
+    if (state) {
+      // Initialize audio first
+      await initAudio()
+      await audioStore.init()
+
+      // Set BPM
+      audioStore.setBpm(state.bpm)
+
+      // Hydrate grid state if present
+      if (state.grid) {
+        gridStore.hydrateFromState(state.grid)
+      }
+
+      // Hydrate layers and update grid layer counter to avoid ID collisions
+      if (state.layers.length > 0) {
+        const { maxGridId } = looperStore.hydrateFromState(state.layers)
+        if (maxGridId > 0) {
+          gridStore.setGridLayerCounter(maxGridId)
+        }
+      }
+
+      // Clear the share link from URL to allow normal navigation
+      clearShareLink()
+    }
+  }
+})
 
 // Initialize audio on first user interaction
 async function handleFirstInteraction() {
@@ -151,13 +211,29 @@ async function handleDrumTrigger(sound: DrumSound) {
             </svg>
           </a>
         </h1>
-        <InstrumentSelector />
       </header>
 
       <!-- Main Content -->
       <main class="flex-1 p-6 flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
-        <!-- Input Mode Tabs -->
-        <InputModeTabs v-model="inputMode" />
+        <!-- Input Mode Tabs + Share -->
+        <div class="flex items-center justify-between">
+          <InputModeTabs v-model="inputMode" />
+          <Button
+            variant="outline"
+            size="sm"
+            :class="cn(
+              'transition-all',
+              shareStatus === 'success' && 'text-green-500 border-green-500/50',
+              shareStatus === 'error' && 'text-destructive border-destructive/50'
+            )"
+            @click="handleShare"
+          >
+            <Check v-if="shareStatus === 'success'" class="h-4 w-4 mr-2" />
+            <X v-else-if="shareStatus === 'error'" class="h-4 w-4 mr-2" />
+            <Share2 v-else class="h-4 w-4 mr-2" />
+            {{ shareStatus === 'success' ? 'Link Copied!' : shareStatus === 'error' ? 'Copy Failed' : 'Share loop' }}
+          </Button>
+        </div>
 
         <!-- Pads Section - Keyboard Mode -->
         <section v-if="inputMode === 'keyboard'" class="grid grid-cols-[auto_1fr] gap-6">
@@ -170,7 +246,10 @@ async function handleDrumTrigger(sound: DrumSound) {
               @noteOn="handleMelodicNoteOn"
               @noteOff="handleMelodicNoteOff"
             />
-            <OctaveSelector />
+            <div class="flex items-center justify-between px-4">
+              <OctaveSelector />
+              <InstrumentSelector />
+            </div>
           </Card>
         </section>
 
