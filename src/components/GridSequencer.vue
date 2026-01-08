@@ -8,16 +8,16 @@ import GridCell from './GridCell.vue'
 import GridControls from './GridControls.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Play, Square, Trash2, Plus, ChevronDown, Check } from 'lucide-vue-next'
+import { Play, Square, Trash2, Plus, Check } from 'lucide-vue-next'
 
 const gridStore = useGridStore()
 const looperStore = useLooperStore()
 const audioStore = useAudioStore()
 const { initAudio } = useAudioContext()
 
-const showPlayDropdown = ref(false)
 const addStatus = ref<'idle' | 'success'>('idle')
 const addStatusTimeout = ref<number | null>(null)
+const previewMode = ref<'grid' | 'withLoops' | null>(null)
 
 function showAddSuccess() {
   addStatus.value = 'success'
@@ -37,37 +37,43 @@ function handleAddToLooper() {
   }
 }
 
+function stopPreview() {
+  gridStore.stopPreview()
+  audioStore.stop()
+  previewMode.value = null
+}
+
 async function handlePreviewOnly() {
-  if (gridStore.isPlaying) {
-    gridStore.stopPreview()
-    audioStore.stop()
-  } else {
-    await initAudio()
-    await audioStore.init()
-    gridStore.startPreview(false)
+  // If already playing in this mode, stop
+  if (previewMode.value === 'grid') {
+    stopPreview()
+    return
   }
-  showPlayDropdown.value = false
+  // If playing in other mode, stop first
+  if (gridStore.isPlaying) {
+    stopPreview()
+  }
+  await initAudio()
+  await audioStore.init()
+  previewMode.value = 'grid'
+  gridStore.startPreview(false)
 }
 
 async function handlePreviewWithLoops() {
-  if (gridStore.isPlaying) {
-    gridStore.stopPreview()
-    audioStore.stop()
-  } else {
-    await initAudio()
-    await audioStore.init()
-    gridStore.startPreview(true)
+  // If already playing in this mode, stop
+  if (previewMode.value === 'withLoops') {
+    stopPreview()
+    return
   }
-  showPlayDropdown.value = false
-}
-
-function togglePlayDropdown(e: MouseEvent) {
-  e.stopPropagation()
-  showPlayDropdown.value = !showPlayDropdown.value
-}
-
-function closePlayDropdown() {
-  showPlayDropdown.value = false
+  // If playing in other mode, stop first
+  if (gridStore.isPlaying) {
+    stopPreview()
+  }
+  await initAudio()
+  await audioStore.init()
+  previewMode.value = 'withLoops'
+  gridStore.startPreview(true)
+  audioStore.play() // Update audioStore state so loop track cursors show
 }
 
 // Generate step numbers for header
@@ -159,61 +165,28 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
 
     <!-- Action Buttons -->
     <div class="flex items-center gap-2 flex-wrap">
-      <!-- Play Button with Dropdown -->
-      <div class="relative">
-        <div class="flex items-center">
-          <Button
-            :variant="gridStore.isPlaying ? 'default' : 'secondary'"
-            size="sm"
-            class="rounded-r-none"
-            @click="handlePreviewOnly"
-          >
-            <Play v-if="!gridStore.isPlaying" class="h-4 w-4 mr-2" />
-            <Square v-else class="h-4 w-4 mr-2 fill-current" />
-            {{ gridStore.isPlaying ? 'Stop' : 'Preview' }}
-          </Button>
-          <Button
-            :variant="gridStore.isPlaying ? 'default' : 'secondary'"
-            size="sm"
-            class="rounded-l-none border-l border-border/50 px-2"
-            @click="togglePlayDropdown"
-            :disabled="gridStore.isPlaying"
-          >
-            <ChevronDown class="h-3 w-3" />
-          </Button>
-        </div>
+      <!-- Preview Button (shows Stop if this mode is playing) -->
+      <Button
+        :variant="previewMode === 'grid' ? 'default' : 'secondary'"
+        size="sm"
+        @click="handlePreviewOnly"
+      >
+        <Square v-if="previewMode === 'grid'" class="h-4 w-4 mr-2 fill-current" />
+        <Play v-else class="h-4 w-4 mr-2" />
+        {{ previewMode === 'grid' ? 'Stop' : 'Preview' }}
+      </Button>
 
-        <!-- Dropdown Menu -->
-        <div
-          v-if="showPlayDropdown && !gridStore.isPlaying"
-          class="absolute top-full left-0 pt-1 z-50"
-        >
-          <div class="bg-card border border-border rounded-lg shadow-lg min-w-[160px]">
-            <button
-              class="w-full px-4 py-2 text-left text-sm hover:bg-secondary/50 rounded-t-lg flex items-center gap-2"
-              @click="handlePreviewOnly"
-            >
-              <Play class="h-3 w-3" />
-              Preview
-            </button>
-            <button
-              v-if="hasLoops"
-              class="w-full px-4 py-2 text-left text-sm hover:bg-secondary/50 rounded-b-lg flex items-center gap-2"
-              @click="handlePreviewWithLoops"
-            >
-              <Play class="h-3 w-3" />
-              Preview with Loops
-            </button>
-          </div>
-        </div>
-
-        <!-- Click outside overlay to close -->
-        <div
-          v-if="showPlayDropdown"
-          class="fixed inset-0 z-40"
-          @click="closePlayDropdown"
-        />
-      </div>
+      <!-- With Loops Button (shows Stop if this mode is playing) -->
+      <Button
+        v-if="hasLoops"
+        :variant="previewMode === 'withLoops' ? 'default' : 'secondary'"
+        size="sm"
+        @click="handlePreviewWithLoops"
+      >
+        <Square v-if="previewMode === 'withLoops'" class="h-4 w-4 mr-2 fill-current" />
+        <Play v-else class="h-4 w-4 mr-2" />
+        {{ previewMode === 'withLoops' ? 'Stop' : 'With Loops' }}
+      </Button>
 
       <Button variant="secondary" size="sm" @click="gridStore.clearPattern">
         <Trash2 class="h-4 w-4 mr-2" />

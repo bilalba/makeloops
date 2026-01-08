@@ -47,7 +47,7 @@ function updateBpm() {
 </script>
 
 <template>
-  <div class="flex items-center gap-6">
+  <div class="transport-controls flex items-center gap-6">
     <!-- BPM Control -->
     <div class="flex items-center gap-3">
       <Label class="text-xs uppercase tracking-wider text-muted-foreground">BPM</Label>
@@ -62,9 +62,21 @@ function updateBpm() {
     </div>
 
     <!-- Position Display -->
-    <div class="flex flex-col items-center">
+    <div class="position-display flex flex-col items-center">
       <span class="text-xs uppercase tracking-wider text-muted-foreground">Position</span>
       <span class="font-mono text-primary text-lg">{{ audioStore.position }}</span>
     </div>
   </div>
 </template>
+
+<style scoped>
+.transport-controls {
+  container-type: inline-size;
+}
+
+@container (max-width: 360px) {
+  .position-display {
+    display: none;
+  }
+}
+</style>
