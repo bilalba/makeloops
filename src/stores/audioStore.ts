@@ -36,7 +36,7 @@ export const useAudioStore = defineStore('audio', () => {
   }
 
   function stop() {
-    instrumentFactory.releaseAllNotes()
+    instrumentFactory.panicAllNotes()
     audioEngine.stop()
     transportState.value = 'stopped'
     position.value = '0:0:0'

@@ -283,8 +283,11 @@ export const useGridStore = defineStore('grid', () => {
 
     // Start transport if not already running, then start sequence
     if (Tone.getTransport().state !== 'started') {
-      Tone.getTransport().start()
+      // Reset position to 0 and start sequence before transport
+      // This ensures the first beat at time 0 is not missed
+      Tone.getTransport().position = 0
       sequence.start(0)
+      Tone.getTransport().start()
     } else {
       // Transport already running - start sequence immediately at current position
       sequence.start()
@@ -304,6 +307,9 @@ export const useGridStore = defineStore('grid', () => {
       sequence.dispose()
       sequence = null
     }
+
+    // Silence any hanging notes
+    instrumentFactory.panicAllNotes()
 
     // Restore looper mute states if we muted them
     if (loopsMutedForPreview) {

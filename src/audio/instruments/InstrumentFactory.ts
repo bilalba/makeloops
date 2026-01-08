@@ -40,6 +40,20 @@ class InstrumentFactory {
     this.melodicInstruments.forEach((inst) => inst.releaseAll())
   }
 
+  // More aggressive note silencing that handles queued events
+  panicAllNotes(): void {
+    // Release immediately
+    this.releaseAllNotes()
+    // Schedule another release to catch any events that were already queued
+    // in Tone.js's scheduler when we called mute/stop
+    setTimeout(() => {
+      this.releaseAllNotes()
+    }, 50)
+    setTimeout(() => {
+      this.releaseAllNotes()
+    }, 100)
+  }
+
   disposeAll(): void {
     this.drumKit?.dispose()
     this.drumKit = null

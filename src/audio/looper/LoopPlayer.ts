@@ -185,6 +185,21 @@ export class LoopPlayer {
     }
   }
 
+  // Mute all parts and silence all notes
+  muteAllAndSilence(): void {
+    this.scheduledLayers.forEach((scheduled) => {
+      if (scheduled.part) {
+        scheduled.part.mute = true
+      }
+    })
+    instrumentFactory.panicAllNotes()
+  }
+
+  // Just silence notes without changing mute state
+  silenceAllNotes(): void {
+    instrumentFactory.panicAllNotes()
+  }
+
   updateLayerVolume(layerId: string, volume: number): void {
     const scheduled = this.scheduledLayers.get(layerId)
     if (scheduled) {

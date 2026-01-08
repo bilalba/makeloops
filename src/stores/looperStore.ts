@@ -201,6 +201,10 @@ export const useLooperStore = defineStore('looper', () => {
 
     layer.muted = !layer.muted
     loopPlayer.updateLayerMute(layerId, layer.muted)
+    // Silence any hanging notes when muting
+    if (layer.muted) {
+      loopPlayer.silenceAllNotes()
+    }
   }
 
   function toggleSolo(layerId: string) {
@@ -214,6 +218,8 @@ export const useLooperStore = defineStore('looper', () => {
       const effectivelyMuted = hasSolo.value ? !l.solo || l.muted : l.muted
       loopPlayer.updateLayerMute(l.id, effectivelyMuted)
     })
+    // Silence any hanging notes after mute state changes
+    loopPlayer.silenceAllNotes()
   }
 
   function setLayerVolume(layerId: string, volume: number) {
