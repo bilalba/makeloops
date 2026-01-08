@@ -12,6 +12,8 @@ export interface LoopLayer {
   duration: number // total recorded duration in ticks
   cropStart: number // crop start in ticks (0 = beginning)
   cropEnd: number // crop end in ticks (duration = full length)
+  startPadding: number // ticks of silence added at start (can shrink this much from start)
+  endPadding: number // ticks of silence added at end (can shrink this much from end)
   instrumentId: InstrumentType
   volume: number
   muted: boolean

@@ -27,6 +27,9 @@ export class LoopRecorder {
   private loopListener: (() => void) | null = null
   private melodicInstrumentType: InstrumentType = 'piano'
 
+  // Track held notes even when not recording (for injecting when recording starts)
+  private heldNotes: Map<string, number> = new Map() // note -> velocity
+
   private getAbsoluteTicks(): number {
     return Tone.getTransport().ticks + this.loopOffsetTicks
   }
@@ -149,6 +152,16 @@ export class LoopRecorder {
         this.melodicEvents.push(event)
       }
     }
+  }
+
+  // Track note on even when not recording (for external held-note tracking)
+  trackNoteOn(note: string, velocity: number): void {
+    this.heldNotes.set(note, velocity)
+  }
+
+  // Track note off even when not recording
+  trackNoteOff(note: string): void {
+    this.heldNotes.delete(note)
   }
 
   isCurrentlyRecording(): boolean {

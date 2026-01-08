@@ -79,6 +79,10 @@ export const useGridStore = defineStore('grid', () => {
     return getScaleNotesForGrid(rootNote.value, scaleName.value, octave.value)
   })
 
+  const hasContent = computed(() => {
+    return pattern.value.some((row) => row.some((cell) => cell.active))
+  })
+
   // Functions
   function createEmptyPattern(rows: number, steps: number): GridPattern {
     return Array.from({ length: rows }, () =>
@@ -363,6 +367,8 @@ export const useGridStore = defineStore('grid', () => {
       duration,
       cropStart: 0,
       cropEnd: duration,
+      startPadding: 0,
+      endPadding: 0,
       instrumentId: instrumentType,
       volume: 0,
       muted: false,
@@ -447,6 +453,7 @@ export const useGridStore = defineStore('grid', () => {
     rowCount,
     rowLabels,
     rowNotes,
+    hasContent,
     // Actions
     toggleCell,
     setCellVelocity,

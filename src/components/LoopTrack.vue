@@ -7,7 +7,7 @@ import { usePlaybackCursor } from '@/composables/usePlaybackCursor'
 import audioEngine from '@/audio/AudioEngine'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { Piano, Waves, Guitar, Radio, Disc, Volume2, Drum, Music, Trash2 } from 'lucide-vue-next'
+import { Piano, Waves, Guitar, Radio, Disc, Volume2, Drum, Music, Trash2, Minus, Plus } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -20,9 +20,6 @@ const props = defineProps<{
 const looperStore = useLooperStore()
 const audioStore = useAudioStore()
 
-const waveformRef = ref<HTMLElement | null>(null)
-const isDragging = ref<'start' | 'end' | null>(null)
-const activeOffsetPercent = ref(0)
 const volumeValue = ref([props.layer.volume])
 
 const instrumentIcons: Record<string, typeof Piano> = {
@@ -39,11 +36,6 @@ const InstrumentIcon = computed(() => instrumentIcons[props.layer.instrumentId] 
 
 const timelineDuration = computed(() => {
   return looperStore.timelineDuration || 0
-})
-
-const cropStartPercent = computed(() => {
-  if (!timelineDuration.value) return 0
-  return (props.layer.cropStart / timelineDuration.value) * 100
 })
 
 const effectiveDurationTicks = computed(() => {
@@ -107,7 +99,7 @@ const eventBlocks = computed(() => {
         // Invert: low drums at bottom (high top%), high drums at top (low top%)
         const top = (totalDrumLanes - 1 - laneIndex) * laneHeight + 2 // +2px padding
         const height = laneHeight - 2 // slight gap between lanes
-        blocks.push({ left, width: 2.5, note: event.note, top, height })
+        blocks.push({ left, width: 4.5, note: event.note, top, height })
       })
     return blocks
   }
@@ -180,75 +172,68 @@ function handleVolumeChange(value: number[] | undefined) {
   looperStore.setLayerVolume(props.layer.id, value[0]!)
 }
 
-function startDrag(edge: 'start' | 'end', event: MouseEvent) {
-  event.preventDefault()
-  isDragging.value = edge
-  if (edge === 'end') {
-    looperStore.freezeTimelineDuration()
-  }
-  document.addEventListener('mousemove', handleDrag)
-  document.addEventListener('mouseup', stopDrag)
-}
-
-function handleDrag(event: MouseEvent) {
-  if (!isDragging.value || !waveformRef.value) return
-
-  const rect = waveformRef.value.getBoundingClientRect()
-  const x = event.clientX - rect.left
-  const baseDuration = timelineDuration.value || props.layer.duration
-  if (!baseDuration) return
-
-  const dragSlackPx = 40
-  const minX = -dragSlackPx
-  const maxX = rect.width + dragSlackPx
-  const clampedX = Math.max(minX, Math.min(maxX, x))
-  const percentWithinTimeline = (clampedX / rect.width) * 100
-  const ticks = (percentWithinTimeline / 100) * baseDuration
-
-  if (isDragging.value === 'start') {
-    // Don't let start go past end - leave minimum 5% gap
-    const minGap = Math.max(1, effectiveDurationTicks.value * 0.05)
-    const maxStart = props.layer.cropEnd - minGap
-    const newStart = Math.min(ticks, maxStart)
-    looperStore.setCropPoints(props.layer.id, newStart, props.layer.cropEnd)
-  } else {
-    // Don't let end go before start - leave minimum 5% gap
-    const minGap = Math.max(1, effectiveDurationTicks.value * 0.05)
-    const minEnd = props.layer.cropStart + minGap
-    const newEnd = Math.max(ticks, minEnd)
-    looperStore.setCropPoints(props.layer.id, props.layer.cropStart, newEnd)
-  }
-}
-
-function stopDrag() {
-  isDragging.value = null
-  looperStore.unfreezeTimelineDuration()
-  document.removeEventListener('mousemove', handleDrag)
-  document.removeEventListener('mouseup', stopDrag)
-}
-
-watch(
-  () => [props.layer.cropStart, props.layer.cropEnd, timelineDuration.value],
-  () => {
-    const startOffset = cropStartPercent.value
-    if (!Number.isFinite(startOffset) || startOffset <= 0) {
-      activeOffsetPercent.value = 0
-      return
-    }
-
-    activeOffsetPercent.value = startOffset
-    requestAnimationFrame(() => {
-      activeOffsetPercent.value = 0
-    })
-  }
-)
-
 watch(() => props.layer.volume, (newVolume) => {
   volumeValue.value = [newVolume]
 })
 
-function extendLayer() {
-  looperStore.extendLayerDuration(props.layer.id, audioEngine.getMeasureTicks())
+const measureTicks = computed(() => audioEngine.getMeasureTicks())
+const beatTicks = computed(() => measureTicks.value / 4) // 4 beats per measure
+const sixteenthTicks = computed(() => beatTicks.value / 4) // 16th notes
+
+// Generate grid marker positions as percentages across the timeline
+// Three levels: measure (brightest), beat (medium), 16th note (faintest)
+const beatMarkers = computed(() => {
+  if (!timelineDuration.value || !sixteenthTicks.value) return []
+
+  const markers: { position: number; level: 'measure' | 'beat' | 'sixteenth' }[] = []
+  const totalSixteenths = Math.floor(timelineDuration.value / sixteenthTicks.value)
+
+  for (let i = 0; i <= totalSixteenths; i++) {
+    const tickPosition = i * sixteenthTicks.value
+    const position = (tickPosition / timelineDuration.value) * 100
+
+    let level: 'measure' | 'beat' | 'sixteenth'
+    if (i % 16 === 0) {
+      level = 'measure' // Every 16 sixteenths = 1 measure
+    } else if (i % 4 === 0) {
+      level = 'beat' // Every 4 sixteenths = 1 beat
+    } else {
+      level = 'sixteenth'
+    }
+
+    markers.push({ position, level })
+  }
+
+  return markers
+})
+
+// Can only shrink if we've extended (have padding to remove)
+const canShrinkFromStart = computed(() => {
+  return props.layer.startPadding >= measureTicks.value
+})
+
+const canShrinkFromEnd = computed(() => {
+  return props.layer.endPadding >= measureTicks.value
+})
+
+function shrinkFromStart() {
+  if (canShrinkFromStart.value) {
+    looperStore.shrinkFromStart(props.layer.id, measureTicks.value)
+  }
+}
+
+function extendFromStart() {
+  looperStore.extendFromStart(props.layer.id, measureTicks.value)
+}
+
+function shrinkFromEnd() {
+  if (canShrinkFromEnd.value) {
+    looperStore.shrinkFromEnd(props.layer.id, measureTicks.value)
+  }
+}
+
+function extendFromEnd() {
+  looperStore.extendFromEnd(props.layer.id, measureTicks.value)
 }
 </script>
 
@@ -258,12 +243,12 @@ function extendLayer() {
       'flex transition-all bg-secondary/30',
       layer.muted && 'opacity-50',
       layer.solo && 'bg-yellow-500/5',
-      !isLast && 'border-b border-border/50'
+      !isLast && 'border-b border-foreground/10'
     )"
   >
     <!-- Left Panel: Track Controls -->
     <div
-      class="flex-shrink-0 flex flex-col justify-center gap-1.5 p-3 bg-card/50 border-r border-border/50"
+      class="flex-shrink-0 flex flex-col justify-center gap-1.5 px-3 h-16 bg-card/50 border-r border-border/50"
       :style="{ width: `${trackControlsWidth}px` }"
     >
       <!-- Track Name Row -->
@@ -321,11 +306,24 @@ function extendLayer() {
     </div>
 
     <!-- Right Panel: Waveform/Timeline Area -->
-    <div ref="waveformRef" class="flex-1 h-16 bg-muted/30 relative overflow-visible">
+    <div ref="waveformRef" class="flex-1 h-16 bg-black/40 relative overflow-visible">
+      <!-- Grid markers: measure (brightest) > beat > 16th note (faintest) -->
+      <div
+        v-for="(marker, i) in beatMarkers"
+        :key="`beat-${i}`"
+        class="absolute top-0 h-full pointer-events-none z-[1]"
+        :class="{
+          'w-0.5 bg-foreground/25': marker.level === 'measure',
+          'w-px bg-foreground/15': marker.level === 'beat',
+          'w-px bg-foreground/6': marker.level === 'sixteenth'
+        }"
+        :style="{ left: `${marker.position}%` }"
+      />
+
       <!-- Active loop region -->
       <div
-        class="absolute top-0 left-0 h-full bg-primary/10 border-l-2 border-r-2 border-primary pointer-events-none z-[3] overflow-hidden transition-[left,width] duration-150"
-        :style="{ width: `${effectiveWidthPercent}%`, left: `${activeOffsetPercent}%` }"
+        class="absolute top-0 left-0 h-full bg-primary/10 border-l-2 border-r-2 border-primary pointer-events-none z-[3] overflow-hidden"
+        :style="{ width: `${effectiveWidthPercent}%` }"
       >
         <!-- Event blocks showing note duration -->
         <div
@@ -349,52 +347,57 @@ function extendLayer() {
         />
       </div>
 
-      <!-- Left crop handle -->
-      <div
-        :class="cn(
-          'absolute top-0 w-3 h-full cursor-col-resize z-10 flex items-center justify-center -translate-x-1/2 group',
-          isDragging === 'start' && 'cursor-grabbing'
-        )"
-        :style="{ left: 0 }"
-        @mousedown="startDrag('start', $event)"
-      >
-        <div
+      <!-- Left bar controls -->
+      <div class="absolute left-1 top-1/2 -translate-y-1/2 flex gap-0.5 z-20">
+        <Button
+          variant="secondary"
+          size="sm"
           :class="cn(
-            'w-1 h-full bg-primary rounded-sm transition-all',
-            (isDragging === 'start') && 'bg-primary shadow-[0_0_8px_rgba(99,102,241,0.5)]',
-            'group-hover:bg-primary group-hover:shadow-[0_0_8px_rgba(99,102,241,0.5)]'
+            'h-6 w-6 p-0 text-[10px]',
+            !canShrinkFromStart && 'opacity-30 cursor-not-allowed'
           )"
-        />
+          :disabled="!canShrinkFromStart"
+          @click="shrinkFromStart"
+          title="Shrink loop by 1 bar from start"
+        >
+          <Minus class="h-3 w-3" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          class="h-6 w-6 p-0 text-[10px]"
+          @click="extendFromStart"
+          title="Extend loop by 1 bar from start"
+        >
+          <Plus class="h-3 w-3" />
+        </Button>
       </div>
 
-      <!-- Right crop handle -->
-      <div
-        :class="cn(
-          'absolute top-0 w-3 h-full cursor-col-resize z-10 flex items-center justify-center -translate-x-1/2 group',
-          isDragging === 'end' && 'cursor-grabbing'
-        )"
-        :style="{ left: `${effectiveWidthPercent}%` }"
-        @mousedown="startDrag('end', $event)"
-      >
-        <div
+      <!-- Right bar controls -->
+      <div class="absolute right-1 top-1/2 -translate-y-1/2 flex gap-0.5 z-20">
+        <Button
+          variant="secondary"
+          size="sm"
           :class="cn(
-            'w-1 h-full bg-primary rounded-sm transition-all',
-            (isDragging === 'end') && 'bg-primary shadow-[0_0_8px_rgba(99,102,241,0.5)]',
-            'group-hover:bg-primary group-hover:shadow-[0_0_8px_rgba(99,102,241,0.5)]'
+            'h-6 w-6 p-0 text-[10px]',
+            !canShrinkFromEnd && 'opacity-30 cursor-not-allowed'
           )"
-        />
+          :disabled="!canShrinkFromEnd"
+          @click="shrinkFromEnd"
+          title="Shrink loop by 1 bar from end"
+        >
+          <Minus class="h-3 w-3" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          class="h-6 w-6 p-0 text-[10px]"
+          @click="extendFromEnd"
+          title="Extend loop by 1 bar"
+        >
+          <Plus class="h-3 w-3" />
+        </Button>
       </div>
-
-      <!-- Extend button -->
-      <Button
-        variant="secondary"
-        size="sm"
-        class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] h-6 px-2 opacity-60 hover:opacity-100 z-20"
-        @click="extendLayer"
-        title="Extend loop by 1 bar"
-      >
-        +1 bar
-      </Button>
     </div>
   </div>
 </template>

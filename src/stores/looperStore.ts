@@ -15,13 +15,9 @@ export const useLooperStore = defineStore('looper', () => {
   const layers = ref<LoopLayer[]>([])
   const isRecording = ref(false)
   const loopDuration = ref(0) // in ticks
-  const frozenTimelineDuration = ref<number | null>(null)
 
   const hasSolo = computed(() => layers.value.some((l) => l.solo))
   const timelineDuration = computed(() => {
-    if (frozenTimelineDuration.value !== null) {
-      return frozenTimelineDuration.value
-    }
     if (layers.value.length === 0) return 0
     return Math.max(
       ...layers.value.map((layer) => getEffectiveDuration(layer))
@@ -74,6 +70,8 @@ export const useLooperStore = defineStore('looper', () => {
       duration: session.endTicks,
       cropStart: 0,
       cropEnd: session.endTicks,
+      startPadding: 0,
+      endPadding: 0,
       instrumentId: session.instrumentType,
       volume: 0,
       muted: false,
@@ -115,30 +113,67 @@ export const useLooperStore = defineStore('looper', () => {
     }
   }
 
-  function setCropPoints(layerId: string, cropStart: number, cropEnd: number) {
+  function shrinkFromStart(layerId: string, ticks: number) {
     const layer = layers.value.find((l) => l.id === layerId)
-    if (!layer) return
+    if (!layer || ticks <= 0) return
 
-    const clampedStart = Math.max(0, Math.min(cropStart, layer.duration))
-    const clampedEnd = Math.max(clampedStart, Math.min(cropEnd, layer.duration))
+    // Can only shrink if we have padding on this side
+    if (layer.startPadding < ticks) return
 
-    layer.cropStart = clampedStart
-    layer.cropEnd = clampedEnd
+    layer.cropStart += ticks
+    layer.startPadding -= ticks
 
     // Recalculate loop duration
     loopDuration.value = Math.max(...layers.value.map((l) => getEffectiveDuration(l)))
     loopPlayer.setLoopDuration(loopDuration.value)
 
-    // Reschedule the layer with new crop boundaries
     loopPlayer.scheduleLayer(layer)
   }
 
-  function extendLayerDuration(layerId: string, ticks: number) {
+  function extendFromStart(layerId: string, ticks: number) {
+    const layer = layers.value.find((l) => l.id === layerId)
+    if (!layer || ticks <= 0) return
+
+    // Add empty space at start - shift all events forward
+    layer.events = layer.events.map((event) => ({
+      ...event,
+      time: event.time + ticks,
+    }))
+    layer.duration += ticks
+    layer.cropEnd += ticks
+    layer.startPadding += ticks
+
+    // Recalculate loop duration
+    loopDuration.value = Math.max(...layers.value.map((l) => getEffectiveDuration(l)))
+    loopPlayer.setLoopDuration(loopDuration.value)
+
+    loopPlayer.scheduleLayer(layer)
+  }
+
+  function shrinkFromEnd(layerId: string, ticks: number) {
+    const layer = layers.value.find((l) => l.id === layerId)
+    if (!layer || ticks <= 0) return
+
+    // Can only shrink if we have padding on this side
+    if (layer.endPadding < ticks) return
+
+    layer.cropEnd -= ticks
+    layer.endPadding -= ticks
+
+    // Recalculate loop duration
+    loopDuration.value = Math.max(...layers.value.map((l) => getEffectiveDuration(l)))
+    loopPlayer.setLoopDuration(loopDuration.value)
+
+    loopPlayer.scheduleLayer(layer)
+  }
+
+  function extendFromEnd(layerId: string, ticks: number) {
     const layer = layers.value.find((l) => l.id === layerId)
     if (!layer || ticks <= 0) return
 
     layer.duration += ticks
-    layer.cropEnd = Math.min(layer.cropEnd + ticks, layer.duration)
+    layer.cropEnd += ticks
+    layer.endPadding += ticks
 
     loopDuration.value = Math.max(...layers.value.map((l) => getEffectiveDuration(l)))
     loopPlayer.setLoopDuration(loopDuration.value)
@@ -173,15 +208,6 @@ export const useLooperStore = defineStore('looper', () => {
       layer.volume = volume
       loopPlayer.updateLayerVolume(layerId, volume)
     }
-  }
-
-  function freezeTimelineDuration() {
-    if (frozenTimelineDuration.value !== null) return
-    frozenTimelineDuration.value = timelineDuration.value
-  }
-
-  function unfreezeTimelineDuration() {
-    frozenTimelineDuration.value = null
   }
 
   function clearAllLayers() {
@@ -229,12 +255,16 @@ export const useLooperStore = defineStore('looper', () => {
   }
 
   function recordNoteOn(note: string, velocity: number = 0.8) {
+    // Always track held notes (for injection when recording starts)
+    loopRecorder.trackNoteOn(note, velocity)
     if (isRecording.value) {
       loopRecorder.recordNoteOn(note, velocity)
     }
   }
 
   function recordNoteOff(note: string) {
+    // Always track held notes
+    loopRecorder.trackNoteOff(note)
     if (isRecording.value) {
       loopRecorder.recordNoteOff(note)
     }
@@ -269,10 +299,10 @@ export const useLooperStore = defineStore('looper', () => {
     toggleMute,
     toggleSolo,
     setLayerVolume,
-    setCropPoints,
-    extendLayerDuration,
-    freezeTimelineDuration,
-    unfreezeTimelineDuration,
+    shrinkFromStart,
+    extendFromStart,
+    shrinkFromEnd,
+    extendFromEnd,
     clearAllLayers,
     rescheduleAllLayers,
     recordNoteOn,

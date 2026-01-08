@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import * as Tone from 'tone'
 import { useAudioStore } from '@/stores/audioStore'
 import { useLooperStore } from '@/stores/looperStore'
 import { Button } from '@/components/ui/button'
@@ -11,6 +12,7 @@ const looperStore = useLooperStore()
 
 const showDropdown = ref(false)
 let loopsMutedForRecording = false
+let autoStopEventId: number | null = null
 
 function handleRecordClick() {
   if (looperStore.isRecording) {
@@ -42,9 +44,23 @@ function startRecording(withLoops: boolean) {
 
   audioStore.startRecording()
   looperStore.startRecording()
+
+  // Auto-stop after 1 bar
+  const oneBar = Tone.Time('1m').toSeconds()
+  autoStopEventId = Tone.getTransport().schedule(() => {
+    if (looperStore.isRecording) {
+      stopRecording()
+    }
+  }, `+${oneBar}`)
 }
 
 function stopRecording() {
+  // Clear auto-stop if it hasn't fired yet
+  if (autoStopEventId !== null) {
+    Tone.getTransport().clear(autoStopEventId)
+    autoStopEventId = null
+  }
+
   looperStore.stopRecording()
   audioStore.stop()
 

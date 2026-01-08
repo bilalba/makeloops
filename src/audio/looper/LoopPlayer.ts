@@ -146,11 +146,13 @@ export class LoopPlayer {
     }
 
     // Ensure any notes started within the crop are released by the loop end.
+    // Schedule slightly before loopEnd to ensure noteOffs fire before loop restarts.
+    const noteOffTime = Tone.Ticks(Math.max(0, effectiveDuration - 1)).toSeconds()
     for (const [note, count] of Object.entries(activeNoteCounts)) {
       if (count <= 0) continue
       for (let i = 0; i < count; i += 1) {
         scheduled.push({
-          time: Tone.Ticks(effectiveDuration).toSeconds(),
+          time: noteOffTime,
           note,
           type: 'noteOff',
           velocity: 0,
