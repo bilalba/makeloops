@@ -11,11 +11,11 @@ const octaves = [7, 6, 5, 4, 3, 2, 1]
 </script>
 
 <template>
-  <div class="flex items-center gap-4 px-4">
+  <div class="flex items-center gap-3 px-3 sm:gap-4 sm:px-4">
     <Button
       variant="secondary"
       size="sm"
-      class="h-10 w-10 p-0 flex flex-col items-center justify-center gap-0.5"
+      class="h-9 w-9 sm:h-10 sm:w-10 p-0 flex flex-col items-center justify-center gap-0.5"
       @click="instrumentStore.octaveDown()"
       :disabled="instrumentStore.octave <= 1"
     >
@@ -23,15 +23,15 @@ const octaves = [7, 6, 5, 4, 3, 2, 1]
       <Minus class="h-4 w-4" />
     </Button>
 
-    <div class="flex flex-col items-center min-w-[4rem]">
-      <Label class="text-xs uppercase tracking-wider text-muted-foreground mb-1">Octave</Label>
-      <span class="text-2xl font-bold text-primary">{{ instrumentStore.octave }}</span>
+    <div class="flex flex-col items-center min-w-[3rem] sm:min-w-[4rem]">
+      <Label class="hidden sm:block text-xs uppercase tracking-wider text-muted-foreground mb-1">Octave</Label>
+      <span class="text-xl sm:text-2xl font-bold text-primary">{{ instrumentStore.octave }}</span>
     </div>
 
     <Button
       variant="secondary"
       size="sm"
-      class="h-10 w-10 p-0 flex flex-col items-center justify-center gap-0.5"
+      class="h-9 w-9 sm:h-10 sm:w-10 p-0 flex flex-col items-center justify-center gap-0.5"
       @click="instrumentStore.octaveUp()"
       :disabled="instrumentStore.octave >= 7"
     >
@@ -39,7 +39,7 @@ const octaves = [7, 6, 5, 4, 3, 2, 1]
       <Plus class="h-4 w-4" />
     </Button>
 
-    <div class="flex flex-col gap-0.5 ml-2">
+    <div class="hidden sm:flex flex-col gap-0.5 ml-2">
       <Button
         v-for="oct in octaves"
         :key="oct"

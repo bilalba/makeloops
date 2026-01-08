@@ -4,6 +4,12 @@ import type { DrumSound } from '@/types'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+const props = withDefaults(defineProps<{
+  showHeader?: boolean
+}>(), {
+  showHeader: true,
+})
+
 const emit = defineEmits<{
   trigger: [sound: DrumSound]
 }>()
@@ -42,8 +48,11 @@ defineExpose({ handleKeyTrigger })
 </script>
 
 <template>
-  <div class="p-4">
-    <h3 class="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
+  <div :class="props.showHeader ? 'p-4' : 'px-4 pb-4 pt-2'">
+    <h3
+      v-if="props.showHeader"
+      class="text-sm font-semibold text-muted-foreground mb-3 uppercase tracking-wider"
+    >
       Drum Pad
     </h3>
     <div class="grid grid-cols-5 gap-2">
@@ -52,7 +61,7 @@ defineExpose({ handleKeyTrigger })
         :key="pad.key"
         :variant="activePads.has(pad.key) ? 'default' : 'secondary'"
         :class="cn(
-          'aspect-square h-auto flex flex-col items-center justify-center p-2 transition-all duration-75',
+          'aspect-square h-auto min-h-[48px] sm:min-h-[56px] flex flex-col items-center justify-center p-2 transition-all duration-75',
           activePads.has(pad.key) && 'scale-95 ring-2 ring-primary'
         )"
         @mousedown="triggerPad(pad.sound, pad.key, $event)"

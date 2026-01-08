@@ -326,26 +326,37 @@ async function handleDrumTrigger(sound: DrumSound) {
         </div>
 
         <!-- Pads Section - Keyboard Mode -->
-        <section v-if="inputMode === 'keyboard'" class="grid grid-cols-[auto_1fr] gap-6">
-          <Card class="bg-card/50 border-border">
-            <Drumpad ref="drumpadRef" @trigger="handleDrumTrigger" />
+        <section v-if="inputMode === 'keyboard'" class="flex flex-col gap-4 lg:grid lg:grid-cols-[auto_1fr] lg:gap-6">
+          <Card class="bg-transparent border-0 p-0 sm:bg-card/50 sm:border-border sm:p-0">
+            <div class="px-4 pt-4 flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Drum Pad
+              </h3>
+            </div>
+            <Drumpad ref="drumpadRef" :show-header="false" @trigger="handleDrumTrigger" />
           </Card>
-          <Card class="bg-card/50 border-border flex flex-col gap-4 pb-4">
+          <Card class="bg-transparent border-0 p-0 sm:bg-card/50 sm:border-border sm:p-0 flex flex-col gap-3 pb-4">
+            <div class="px-4 pt-4 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                Melodic Pad
+              </h3>
+            </div>
             <MelodicPad
               ref="melodicPadRef"
+              :show-header="false"
               @noteOn="handleMelodicNoteOn"
               @noteOff="handleMelodicNoteOff"
             />
-            <div class="flex items-center justify-between px-4">
+            <div class="px-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <OctaveSelector />
-              <InstrumentSelector />
+              <InstrumentSelector :show-label="false" compact class="w-full sm:w-auto" />
             </div>
           </Card>
         </section>
 
         <!-- Grid Sequencer Mode -->
         <section v-else>
-          <Card class="bg-card/50 border-border p-4">
+          <Card class="bg-transparent border-0 p-0 sm:bg-card/50 sm:border-border sm:p-4">
             <GridSequencer />
           </Card>
         </section>

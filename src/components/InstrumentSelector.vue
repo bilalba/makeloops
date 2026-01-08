@@ -6,6 +6,14 @@ import { Label } from '@/components/ui/label'
 import { Piano, Radio, Guitar, Disc, Volume2, Waves } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
+const props = withDefaults(defineProps<{
+  showLabel?: boolean
+  compact?: boolean
+}>(), {
+  showLabel: true,
+  compact: false,
+})
+
 const instrumentStore = useInstrumentStore()
 
 const instruments: { type: InstrumentType; label: string; icon: typeof Piano }[] = [
@@ -23,9 +31,14 @@ function selectInstrument(type: InstrumentType) {
 </script>
 
 <template>
-  <div class="flex items-center gap-3">
-    <Label class="text-xs uppercase tracking-wider text-muted-foreground">Instrument</Label>
-    <div class="flex gap-1">
+  <div :class="cn('flex items-center gap-3', props.compact && 'gap-2')">
+    <Label
+      v-if="props.showLabel"
+      class="text-xs uppercase tracking-wider text-muted-foreground"
+    >
+      Instrument
+    </Label>
+    <div :class="cn('flex gap-1', props.compact && 'flex-1 overflow-x-auto')">
       <Button
         v-for="inst in instruments"
         :key="inst.type"
@@ -33,13 +46,16 @@ function selectInstrument(type: InstrumentType) {
         size="sm"
         :class="cn(
           'flex flex-col items-center gap-0.5 h-auto py-1.5 px-2.5 min-w-[3.5rem]',
+          props.compact && 'min-w-[2.75rem] px-2 py-1',
           instrumentStore.currentInstrument === inst.type && 'ring-1 ring-primary/50'
         )"
         @click="selectInstrument(inst.type)"
         :title="inst.label"
       >
         <component :is="inst.icon" class="h-4 w-4" />
-        <span class="text-[10px] leading-none">{{ inst.label }}</span>
+        <span :class="cn('text-[10px] leading-none', props.compact && 'text-[9px]')">
+          {{ inst.label }}
+        </span>
       </Button>
     </div>
   </div>
