@@ -107,7 +107,7 @@ const eventBlocks = computed(() => {
         // Invert: low drums at bottom (high top%), high drums at top (low top%)
         const top = (totalDrumLanes - 1 - laneIndex) * laneHeight + 2 // +2px padding
         const height = laneHeight - 2 // slight gap between lanes
-        blocks.push({ left, width: 0.8, note: event.note, top, height })
+        blocks.push({ left, width: 2.5, note: event.note, top, height })
       })
     return blocks
   }
