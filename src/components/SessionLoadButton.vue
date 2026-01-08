@@ -14,6 +14,10 @@ import { useAudioStore } from '@/stores/audioStore'
 import { useLooperStore } from '@/stores/looperStore'
 import { useGridStore } from '@/stores/gridStore'
 
+const props = defineProps<{
+  fullWidth?: boolean
+}>()
+
 const sessionStore = useSessionStore()
 const audioStore = useAudioStore()
 const looperStore = useLooperStore()
@@ -73,7 +77,7 @@ function handleDelete(e: Event, sessionId: string) {
 <template>
   <DropdownMenuRoot v-model:open="dropdownOpen">
     <DropdownMenuTrigger as-child>
-      <Button variant="outline" size="sm">
+      <Button variant="outline" size="sm" :class="props.fullWidth && 'w-full'">
         <FolderOpen class="h-4 w-4 mr-2" />
         Load
       </Button>

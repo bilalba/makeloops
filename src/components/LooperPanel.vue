@@ -26,8 +26,8 @@ const looperStore = useLooperStore()
 const audioStore = useAudioStore()
 const gridStore = useGridStore()
 
-// Fixed width for track controls panel (matches LoopTrack)
-const TRACK_CONTROLS_WIDTH = 180
+// Responsive width for track controls panel (matches LoopTrack)
+const TRACK_CONTROLS_WIDTH = 'clamp(120px, 32vw, 180px)'
 
 // Edit confirmation dialog state
 const showEditConfirm = ref(false)
@@ -261,7 +261,7 @@ const axisMarkers = computed(() => {
       <!-- Timeline Header (aligned with track waveforms) -->
       <div v-if="axisMarkers.length" class="flex">
         <!-- Spacer for track controls -->
-        <div class="flex-shrink-0" :style="{ width: `${TRACK_CONTROLS_WIDTH}px` }" />
+        <div class="flex-shrink-0" :style="{ width: TRACK_CONTROLS_WIDTH }" />
         <!-- Timeline ruler -->
         <div class="flex-1 relative h-7">
           <div class="absolute top-3 left-0 right-0 h-px bg-border" />

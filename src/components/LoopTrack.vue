@@ -14,7 +14,7 @@ const props = defineProps<{
   layer: LoopLayer
   isFirst?: boolean
   isLast?: boolean
-  trackControlsWidth: number
+  trackControlsWidth: string
 }>()
 
 const emit = defineEmits<{
@@ -314,7 +314,7 @@ function handleEdit() {
     <!-- Left Panel: Track Controls -->
     <div
       class="flex-shrink-0 flex flex-col justify-center gap-0.5 pl-1.5 pr-1 py-1 bg-card/50 border-r border-border/50"
-      :style="{ width: `${trackControlsWidth}px` }"
+      :style="{ width: trackControlsWidth }"
     >
       <!-- Row 1: Track Name -->
       <div class="flex items-center gap-1.5">

@@ -83,7 +83,7 @@ export const useLooperStore = defineStore('looper', () => {
     return layer.cropEnd - layer.cropStart
   }
 
-  function addLayer(layer: LoopLayer) {
+  function addLayer(layer: LoopLayer, schedule: boolean = true) {
     layers.value.push(layer)
 
     // Update loop duration to longest layer (using effective/cropped duration)
@@ -93,8 +93,10 @@ export const useLooperStore = defineStore('looper', () => {
       loopPlayer.setLoopDuration(loopDuration.value)
     }
 
-    // Schedule the new layer
-    loopPlayer.scheduleLayer(layer)
+    if (schedule) {
+      // Schedule the new layer
+      loopPlayer.scheduleLayer(layer)
+    }
   }
 
   function removeLayer(layerId: string) {
@@ -237,7 +239,11 @@ export const useLooperStore = defineStore('looper', () => {
     layerIdCounter = 0
   }
 
-  function hydrateFromState(newLayers: LoopLayer[]): { maxGridId: number } {
+  function hydrateFromState(
+    newLayers: LoopLayer[],
+    options: { schedule?: boolean } = {}
+  ): { maxGridId: number } {
+    const { schedule = true } = options
     // Clear existing layers first
     clearAllLayers()
 
@@ -259,7 +265,7 @@ export const useLooperStore = defineStore('looper', () => {
 
     // Add each layer
     for (const layer of newLayers) {
-      addLayer(layer)
+      addLayer(layer, schedule)
     }
 
     // Return maxGridId so caller can update gridStore's counter

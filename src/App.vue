@@ -7,7 +7,7 @@ import { useAudioStore } from '@/stores/audioStore'
 import { useInstrumentStore } from '@/stores/instrumentStore'
 import { useLooperStore } from '@/stores/looperStore'
 import { useGridStore } from '@/stores/gridStore'
-import { useSessionStore, type SavedSession } from '@/stores/sessionStore'
+import { useSessionStore } from '@/stores/sessionStore'
 import type { DrumSound } from '@/types'
 
 import Drumpad from '@/components/Drumpad.vue'
@@ -25,7 +25,8 @@ import SessionIndicator from '@/components/SessionIndicator.vue'
 import { Card } from '@/components/ui/card'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import { Share2, Check, X } from 'lucide-vue-next'
+import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuContent } from 'radix-vue'
+import { Share2, Check, X, MoreHorizontal } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
 const { initialized, initAudio } = useAudioContext()
@@ -40,12 +41,13 @@ const drumpadRef = ref<InstanceType<typeof Drumpad> | null>(null)
 const melodicPadRef = ref<InstanceType<typeof MelodicPad> | null>(null)
 const inputMode = ref<'keyboard' | 'grid'>('grid')
 
-// Pending session to restore after audio init
-const pendingSessionRestore = ref<SavedSession | null>(null)
+// Pending layer scheduling after audio init
+const pendingLayerSchedule = ref(false)
 
 // Share button state
 const shareStatus = ref<'idle' | 'success' | 'error'>('idle')
 const shareStatusTimeout = ref<number | null>(null)
+const sessionMenuOpen = ref(false)
 
 async function handleShare() {
   const link = generateShareLink(
@@ -63,6 +65,11 @@ async function handleShare() {
   shareStatusTimeout.value = window.setTimeout(() => {
     shareStatus.value = 'idle'
   }, 2000)
+}
+
+async function handleShareFromMenu() {
+  await handleShare()
+  sessionMenuOpen.value = false
 }
 
 // Load state from share link or saved session on mount
@@ -100,13 +107,23 @@ onMounted(async () => {
     // Restore the last saved session
     const session = sessionStore.loadSession(sessionStore.currentSessionId)
     if (session) {
+      // Apply BPM for UI immediately
+      audioStore.setBpm(session.bpm)
+
       // Restore grid and layer data immediately (no audio needed)
       if (session.grid) {
         gridStore.hydrateFromState(session.grid)
       }
 
-      // Store session data to apply after audio init on first interaction
-      pendingSessionRestore.value = session
+      if (session.layers.length > 0) {
+        const { maxGridId } = looperStore.hydrateFromState(session.layers, { schedule: false })
+        if (maxGridId > 0) {
+          gridStore.setGridLayerCounter(maxGridId)
+        }
+        pendingLayerSchedule.value = true
+      } else {
+        looperStore.clearAllLayers()
+      }
     }
   }
 })
@@ -117,21 +134,10 @@ async function handleFirstInteraction() {
     await initAudio()
     await audioStore.init()
 
-    // Apply pending session restore now that audio is ready
-    if (pendingSessionRestore.value) {
-      const session = pendingSessionRestore.value
-      audioStore.stop()
-      audioStore.setBpm(session.bpm)
-
-      // Hydrate layers (requires audio for scheduling)
-      if (session.layers.length > 0) {
-        const { maxGridId } = looperStore.hydrateFromState(session.layers)
-        if (maxGridId > 0) {
-          gridStore.setGridLayerCounter(maxGridId)
-        }
-      }
-
-      pendingSessionRestore.value = null
+    // Schedule any pending layers now that audio is ready
+    if (pendingLayerSchedule.value) {
+      looperStore.rescheduleAllLayers()
+      pendingLayerSchedule.value = false
     }
   }
 }
@@ -256,9 +262,9 @@ async function handleDrumTrigger(sound: DrumSound) {
       <!-- Main Content -->
       <main class="flex-1 p-6 flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
         <!-- Input Mode Tabs + Session Controls -->
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-3">
           <InputModeTabs v-model="inputMode" />
-          <div class="flex items-center gap-2">
+          <div class="hidden sm:flex items-center gap-2">
             <SessionIndicator />
             <SessionSaveButton />
             <SessionLoadButton />
@@ -277,6 +283,45 @@ async function handleDrumTrigger(sound: DrumSound) {
               <Share2 v-else class="h-4 w-4 mr-2" />
               {{ shareStatus === 'success' ? 'Link Copied!' : shareStatus === 'error' ? 'Copy Failed' : 'Share' }}
             </Button>
+          </div>
+          <div class="flex items-center justify-end sm:hidden">
+            <DropdownMenuRoot v-model:open="sessionMenuOpen">
+              <DropdownMenuTrigger as-child>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal class="h-4 w-4" />
+                  <span class="sr-only">Session actions</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                class="bg-card border border-border rounded-md shadow-lg p-3 w-[260px] z-50"
+                :side-offset="6"
+                align="end"
+              >
+                <div class="flex items-center justify-between mb-3">
+                  <span class="text-xs text-muted-foreground font-medium">Session</span>
+                  <SessionIndicator />
+                </div>
+                <div class="flex flex-col gap-2">
+                  <SessionSaveButton full-width />
+                  <SessionLoadButton full-width />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    :class="cn(
+                      'transition-all w-full',
+                      shareStatus === 'success' && 'text-green-500 border-green-500/50',
+                      shareStatus === 'error' && 'text-destructive border-destructive/50'
+                    )"
+                    @click="handleShareFromMenu"
+                  >
+                    <Check v-if="shareStatus === 'success'" class="h-4 w-4 mr-2" />
+                    <X v-else-if="shareStatus === 'error'" class="h-4 w-4 mr-2" />
+                    <Share2 v-else class="h-4 w-4 mr-2" />
+                    {{ shareStatus === 'success' ? 'Link Copied!' : shareStatus === 'error' ? 'Copy Failed' : 'Share' }}
+                  </Button>
+                </div>
+              </DropdownMenuContent>
+            </DropdownMenuRoot>
           </div>
         </div>
 

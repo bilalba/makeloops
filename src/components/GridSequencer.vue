@@ -90,23 +90,23 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
     <GridControls />
 
     <!-- Grid Container -->
-    <div class="overflow-x-auto">
-      <div class="min-w-[600px]">
+    <div class="overflow-x-hidden">
+      <div class="min-w-0">
         <!-- Step Numbers Header -->
         <div class="flex">
           <!-- Spacer for row labels -->
-          <div class="w-16 flex-shrink-0" />
+          <div class="w-12 sm:w-16 flex-shrink-0" />
           <!-- Step numbers -->
           <div
             class="flex-1 grid"
-            :style="{ gridTemplateColumns: `repeat(${gridStore.stepCount}, 1fr)` }"
+            :style="{ gridTemplateColumns: `repeat(${gridStore.stepCount}, minmax(0, 1fr))` }"
           >
             <div
               v-for="step in stepNumbers"
               :key="step"
               :class="
                 cn(
-                  'text-center text-[10px] text-muted-foreground py-1',
+                  'text-center text-[9px] sm:text-[10px] text-muted-foreground py-1',
                   gridStore.currentStep === step - 1 && 'text-primary font-bold'
                 )
               "
@@ -130,9 +130,9 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
           >
             <!-- Row Label -->
             <div
-              class="w-16 flex-shrink-0 px-2 py-1 bg-card/50 border-r border-border/50 flex items-center"
+              class="w-12 sm:w-16 flex-shrink-0 px-2 py-1 bg-card/50 border-r border-border/50 flex items-center"
             >
-              <span class="text-xs text-muted-foreground truncate">
+              <span class="text-[10px] sm:text-xs text-muted-foreground truncate">
                 {{ gridStore.rowLabels[rowIndex] }}
               </span>
             </div>
@@ -140,7 +140,7 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
             <!-- Grid Cells -->
             <div
               class="flex-1 grid"
-              :style="{ gridTemplateColumns: `repeat(${gridStore.stepCount}, 1fr)` }"
+              :style="{ gridTemplateColumns: `repeat(${gridStore.stepCount}, minmax(0, 1fr))` }"
             >
               <GridCell
                 v-for="(cell, stepIndex) in row"

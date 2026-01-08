@@ -16,6 +16,10 @@ import { useLooperStore } from '@/stores/looperStore'
 import { useGridStore } from '@/stores/gridStore'
 import { cn } from '@/lib/utils'
 
+const props = defineProps<{
+  fullWidth?: boolean
+}>()
+
 const sessionStore = useSessionStore()
 const audioStore = useAudioStore()
 const looperStore = useLooperStore()
@@ -120,13 +124,14 @@ function handleKeydown(e: KeyboardEvent) {
 
   <!-- Save Button with Dropdown -->
   <DropdownMenuRoot v-model:open="dropdownOpen">
-    <div class="flex">
+    <div :class="cn('flex', props.fullWidth && 'w-full')">
       <!-- Main Save Button -->
       <Button
         variant="outline"
         size="sm"
         :class="cn(
           'rounded-r-none border-r-0 transition-all',
+          props.fullWidth && 'flex-1',
           saveStatus === 'success' && 'text-green-500 border-green-500/50'
         )"
         @click="handleSave"
