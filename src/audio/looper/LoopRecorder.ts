@@ -61,16 +61,16 @@ export class LoopRecorder {
     if (!this.isRecording) return []
 
     this.isRecording = false
-    const endTicks = this.getAbsoluteTicks()
     if (this.loopListener) {
       Tone.getTransport().off('loop', this.loopListener)
     }
 
     const sessions: RecordingSession[] = []
 
-    // Use raw boundaries - no quantization, user can crop manually
+    // Force loop to be exactly 1 bar regardless of actual stop time
     const start = this.startTicks
-    const end = endTicks
+    const oneBarTicks = Tone.Time('1m').toTicks()
+    const end = start + oneBarTicks
 
     // Create drum session if there are drum events
     if (this.drumEvents.length > 0) {
