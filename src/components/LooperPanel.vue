@@ -1,21 +1,164 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useLooperStore } from '@/stores/looperStore'
 import { useAudioStore } from '@/stores/audioStore'
+import { useGridStore } from '@/stores/gridStore'
 import LoopTrack from './LoopTrack.vue'
 import * as Tone from 'tone'
 import audioEngine from '@/audio/AudioEngine'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Play, Pause, Square, Trash2 } from 'lucide-vue-next'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Play, Pause, Square, Trash2, Download } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
 const looperStore = useLooperStore()
 const audioStore = useAudioStore()
+const gridStore = useGridStore()
 
 // Fixed width for track controls panel (matches LoopTrack)
 const TRACK_CONTROLS_WIDTH = 180
+
+// Edit confirmation dialog state
+const showEditConfirm = ref(false)
+const pendingEditLayerId = ref<string | null>(null)
+
+function handleEditLayer(layerId: string) {
+  // Check if grid has content
+  if (gridStore.hasContent) {
+    pendingEditLayerId.value = layerId
+    showEditConfirm.value = true
+  } else {
+    executeEdit(layerId)
+  }
+}
+
+function executeEdit(layerId: string) {
+  const layer = looperStore.layers.find(l => l.id === layerId)
+  if (!layer) return
+
+  // Get the effective duration (1 bar for grid)
+  const effectiveDuration = layer.cropEnd - layer.cropStart
+
+  // Find the actual content range (where events actually exist)
+  const noteOnEvents = layer.events.filter(e => e.type === 'noteOn')
+  if (noteOnEvents.length === 0) {
+    return
+  }
+
+  // Normalize events relative to cropStart + startPadding
+  // This preserves original beat positions and handles padding from extensions
+  const offset = layer.cropStart + layer.startPadding
+  const normalizedEvents = layer.events
+    .filter(e => e.time >= layer.cropStart && e.time < layer.cropEnd)
+    .map(e => ({ ...e, time: e.time - offset }))
+
+  // Load events into grid (this will clear the grid first)
+  gridStore.loadFromMidiEvents(normalizedEvents, layer.instrumentId, effectiveDuration)
+}
+
+function handleEditConfirm() {
+  const layerId = pendingEditLayerId.value
+  pendingEditLayerId.value = null
+  showEditConfirm.value = false
+  if (layerId) {
+    executeEdit(layerId)
+  }
+}
+
+function handleEditCancel() {
+  pendingEditLayerId.value = null
+  showEditConfirm.value = false
+}
+
+// Export WAV
+const isExporting = ref(false)
+
+async function handleExportWav() {
+  if (isExporting.value || looperStore.layers.length === 0) return
+
+  isExporting.value = true
+
+  try {
+    console.log('Export: starting...')
+
+    // Calculate loop duration in seconds
+    const durationTicks = looperStore.timelineDuration
+    const durationSeconds = audioEngine.ticksToSeconds(durationTicks)
+    console.log('Export: duration =', durationSeconds)
+
+    // Stop if currently playing and reset
+    handleStop()
+    console.log('Export: stopped')
+
+    // Small delay to ensure clean state
+    await new Promise(resolve => setTimeout(resolve, 50))
+    console.log('Export: delay done')
+
+    // Ensure audio context is running (required for recorder)
+    await audioEngine.init()
+    console.log('Export: audio context ready, state =', Tone.getContext().state)
+
+    // Force resume if suspended
+    if (Tone.getContext().state === 'suspended') {
+      await Tone.getContext().resume()
+      console.log('Export: context resumed')
+    }
+
+    // Reset transport position to exactly 0 before anything else
+    audioEngine.setPosition(0)
+
+    // Start recording
+    console.log('Export: about to start recording, recorder state =', audioEngine.recorder.state)
+    audioEngine.recorder.start()
+    console.log('Export: recorder.start() called')
+
+    // Use scheduled start to ensure transport begins after recorder is ready
+    // This gives the Web Audio scheduler time to queue up events at position 0
+    const startDelay = 0.15 // seconds
+    console.log('Export: about to play with scheduled start')
+    audioStore.play(`+${startDelay}`)
+    console.log('Export: play() called with delay, isPlaying =', audioStore.isPlaying)
+
+    // Wait for start delay + one full loop cycle + buffer
+    await new Promise(resolve => setTimeout(resolve, (startDelay + durationSeconds) * 1000 + 300))
+    console.log('Export: wait done')
+
+    // Stop playback
+    handleStop()
+    console.log('Export: stopped playback')
+
+    // Stop recording and get blob
+    const blob = await audioEngine.stopRecording()
+    console.log('Export: got blob, size =', blob.size)
+
+    if (blob.size > 0) {
+      // Download the file
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `loop-${Date.now()}.wav`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }
+  } catch (error) {
+    console.error('Export failed:', error)
+  } finally {
+    isExporting.value = false
+  }
+}
 
 function handlePlay() {
   if (audioStore.isPlaying) {
@@ -154,12 +297,22 @@ const axisMarkers = computed(() => {
             :is-first="index === 0"
             :is-last="index === looperStore.layers.length - 1"
             :track-controls-width="TRACK_CONTROLS_WIDTH"
+            @edit-layer="handleEditLayer"
           />
         </div>
       </div>
 
       <!-- Actions -->
-      <div v-if="looperStore.layers.length > 0" class="flex justify-end pt-2">
+      <div v-if="looperStore.layers.length > 0" class="flex justify-between pt-2">
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="isExporting"
+          @click="handleExportWav"
+        >
+          <Download class="h-4 w-4 mr-2" />
+          {{ isExporting ? 'Exporting...' : 'Export WAV' }}
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -172,4 +325,20 @@ const axisMarkers = computed(() => {
       </div>
     </CardContent>
   </Card>
+
+  <!-- Edit Confirmation Dialog -->
+  <AlertDialog :open="showEditConfirm">
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Clear Grid?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This will clear your current grid pattern and load the loop for editing. Any unsaved changes to the grid will be lost.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel @click="handleEditCancel">Cancel</AlertDialogCancel>
+        <AlertDialogAction @click="handleEditConfirm">Clear & Edit</AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
 </template>

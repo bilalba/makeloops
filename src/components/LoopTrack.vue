@@ -7,7 +7,7 @@ import { usePlaybackCursor } from '@/composables/usePlaybackCursor'
 import audioEngine from '@/audio/AudioEngine'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
-import { Piano, Waves, Guitar, Radio, Disc, Volume2, Drum, Music, Trash2, Minus, Plus } from 'lucide-vue-next'
+import { Piano, Waves, Guitar, Radio, Disc, Volume2, Drum, Music, Trash2, Minus, Plus, Copy, Pencil } from 'lucide-vue-next'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -15,6 +15,10 @@ const props = defineProps<{
   isFirst?: boolean
   isLast?: boolean
   trackControlsWidth: number
+}>()
+
+const emit = defineEmits<{
+  (e: 'edit-layer', layerId: string): void
 }>()
 
 const looperStore = useLooperStore()
@@ -77,6 +81,25 @@ const totalDrumLanes = 10
 
 const isDrumLayer = computed(() => props.layer.instrumentId === 'drums')
 
+// Convert note name (e.g., "C4", "D#5") to MIDI number for vertical positioning
+function noteToMidi(note: string): number {
+  const noteNames: Record<string, number> = {
+    'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
+    'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
+    'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+  }
+
+  // Parse note name and octave (e.g., "C#4" -> ["C#", "4"])
+  const match = note.match(/^([A-Ga-g][#b]?)(\d+)$/)
+  if (!match) return 60 // Default to middle C
+
+  const [, noteName, octaveStr] = match
+  const pitchClass = noteNames[noteName!] ?? 0
+  const octave = parseInt(octaveStr!, 10)
+
+  return (octave + 1) * 12 + pitchClass
+}
+
 // Event blocks with note duration (width based on noteOn->noteOff pairing)
 const eventBlocks = computed(() => {
   if (!props.layer.events.length || !effectiveDurationTicks.value) return []
@@ -87,9 +110,12 @@ const eventBlocks = computed(() => {
   const cropEnd = props.layer.cropEnd
   const duration = effectiveDurationTicks.value
 
-  // For drums, use fixed narrow width and vertical positioning by drum type
+  // For drums, use fixed tick-based width (1/16 note = sixteenthTicks) and vertical positioning by drum type
   if (isDrumLayer.value) {
     const laneHeight = 100 / totalDrumLanes
+    // Width based on fixed tick duration (1/16 note), not fixed percentage
+    const drumWidthTicks = sixteenthTicks.value || 120 // fallback to 120 ticks
+    const drumWidthPercent = Math.max(0.5, (drumWidthTicks / duration) * 100)
     events
       .filter(e => e.type === 'noteOn' && e.time >= cropStart && e.time < cropEnd)
       .forEach((event) => {
@@ -99,12 +125,42 @@ const eventBlocks = computed(() => {
         // Invert: low drums at bottom (high top%), high drums at top (low top%)
         const top = (totalDrumLanes - 1 - laneIndex) * laneHeight + 2 // +2px padding
         const height = laneHeight - 2 // slight gap between lanes
-        blocks.push({ left, width: 4.5, note: event.note, top, height })
+        blocks.push({ left, width: drumWidthPercent, note: event.note, top, height })
       })
     return blocks
   }
 
   // For melodic instruments, use noteOn->noteOff pairing for width
+  // Calculate pitch range for vertical positioning
+  const noteOnEvents = events.filter(e => e.type === 'noteOn' && e.time >= cropStart && e.time < cropEnd)
+  if (noteOnEvents.length === 0) return []
+
+  const midiNotes = noteOnEvents.map(e => noteToMidi(e.note))
+  const minMidi = Math.min(...midiNotes)
+  const maxMidi = Math.max(...midiNotes)
+  const actualRange = maxMidi - minMidi
+
+  // Use a minimum range of 24 semitones (2 octaves), centered on actual notes
+  const minRange = 24
+  const displayRange = Math.max(minRange, actualRange)
+  const midPoint = (minMidi + maxMidi) / 2
+  const displayMin = midPoint - displayRange / 2
+  const displayMax = midPoint + displayRange / 2
+
+  // Fixed lane height for consistent look
+  const laneHeight = 100 / displayRange
+  const noteHeight = Math.min(12, Math.max(laneHeight * 0.8, 4)) // reasonable note thickness
+
+  // Helper to get vertical position for a note (low notes at bottom, high at top)
+  const getNoteTop = (note: string): number => {
+    const midi = noteToMidi(note)
+    const normalizedPos = (midi - displayMin) / displayRange
+    // Invert so high notes are at top (low top%), low notes at bottom (high top%)
+    // Add padding (10% top/bottom) so notes don't touch edges
+    const paddedRange = 80 // use 80% of height, 10% padding each side
+    return 10 + (1 - normalizedPos) * paddedRange
+  }
+
   // Build a map of noteOn events to their corresponding noteOff times
   const noteOnTimes: Map<string, number[]> = new Map()
 
@@ -140,8 +196,9 @@ const eventBlocks = computed(() => {
             const left = (leftTicks / duration) * 100
             // Minimum width of 1% for very short notes
             const width = Math.max(1, (widthTicks / duration) * 100)
+            const top = getNoteTop(event.note)
 
-            blocks.push({ left, width, note: event.note, top: 12.5, height: 75 })
+            blocks.push({ left, width, note: event.note, top, height: noteHeight })
           }
           activeNotes.set(event.note, stack)
         }
@@ -157,8 +214,9 @@ const eventBlocks = computed(() => {
 
         const left = (leftTicks / duration) * 100
         const width = Math.max(1, (widthTicks / duration) * 100)
+        const top = getNoteTop(note)
 
-        blocks.push({ left, width, note, top: 12.5, height: 75 })
+        blocks.push({ left, width, note, top, height: noteHeight })
       }
     })
   })
@@ -235,6 +293,14 @@ function shrinkFromEnd() {
 function extendFromEnd() {
   looperStore.extendFromEnd(props.layer.id, measureTicks.value)
 }
+
+function handleDuplicate() {
+  looperStore.duplicateLayer(props.layer.id)
+}
+
+function handleEdit() {
+  emit('edit-layer', props.layer.id)
+}
 </script>
 
 <template>
@@ -248,13 +314,35 @@ function extendFromEnd() {
   >
     <!-- Left Panel: Track Controls -->
     <div
-      class="flex-shrink-0 flex flex-col justify-center gap-1.5 px-3 h-16 bg-card/50 border-r border-border/50"
+      class="flex-shrink-0 flex flex-col justify-center gap-0.5 pl-1.5 pr-1 py-1 bg-card/50 border-r border-border/50"
       :style="{ width: `${trackControlsWidth}px` }"
     >
-      <!-- Track Name Row -->
-      <div class="flex items-center gap-2">
+      <!-- Row 1: Track Name -->
+      <div class="flex items-center gap-1.5">
         <component :is="InstrumentIcon" class="h-4 w-4 text-primary flex-shrink-0" />
-        <span class="text-sm text-foreground truncate flex-1">{{ layer.name }}</span>
+        <span class="text-sm text-foreground truncate">{{ layer.name }}</span>
+      </div>
+
+      <!-- Row 2: Action Icons -->
+      <div class="flex items-center justify-end gap-0.5">
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-primary flex-shrink-0"
+          @click="handleEdit"
+          title="Edit in Grid"
+        >
+          <Pencil class="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          class="h-6 w-6 text-muted-foreground hover:text-primary flex-shrink-0"
+          @click="handleDuplicate"
+          title="Duplicate Layer"
+        >
+          <Copy class="h-3.5 w-3.5" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"
@@ -266,8 +354,8 @@ function extendFromEnd() {
         </Button>
       </div>
 
-      <!-- Controls Row: M/S + Volume -->
-      <div class="flex items-center gap-2">
+      <!-- Row 3: M/S + Volume -->
+      <div class="flex items-center gap-1">
         <Button
           variant="ghost"
           size="sm"
@@ -292,7 +380,7 @@ function extendFromEnd() {
         >
           S
         </Button>
-        <div class="flex-1 px-1">
+        <div class="flex-1 ml-1">
           <Slider
             :model-value="volumeValue"
             :min="-20"
@@ -306,7 +394,7 @@ function extendFromEnd() {
     </div>
 
     <!-- Right Panel: Waveform/Timeline Area -->
-    <div ref="waveformRef" class="flex-1 h-16 bg-black/40 relative overflow-visible">
+    <div ref="waveformRef" class="flex-1 bg-black/40 relative overflow-visible">
       <!-- Grid markers: measure (brightest) > beat > 16th note (faintest) -->
       <div
         v-for="(marker, i) in beatMarkers"

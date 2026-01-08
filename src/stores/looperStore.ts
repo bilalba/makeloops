@@ -113,6 +113,20 @@ export const useLooperStore = defineStore('looper', () => {
     }
   }
 
+  function duplicateLayer(layerId: string): LoopLayer | null {
+    const layer = layers.value.find((l) => l.id === layerId)
+    if (!layer) return null
+
+    const newLayer: LoopLayer = {
+      ...JSON.parse(JSON.stringify(layer)),
+      id: generateLayerId(),
+      name: `${layer.name} (Copy)`,
+    }
+
+    addLayer(newLayer)
+    return newLayer
+  }
+
   function shrinkFromStart(layerId: string, ticks: number) {
     const layer = layers.value.find((l) => l.id === layerId)
     if (!layer || ticks <= 0) return
@@ -296,6 +310,7 @@ export const useLooperStore = defineStore('looper', () => {
     stopRecording,
     addLayer,
     removeLayer,
+    duplicateLayer,
     toggleMute,
     toggleSolo,
     setLayerVolume,

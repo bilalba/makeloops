@@ -434,6 +434,102 @@ export const useGridStore = defineStore('grid', () => {
     }
   }
 
+  // Load events from a loop layer back into the grid for editing
+  function loadFromMidiEvents(
+    events: MidiEvent[],
+    instrumentId: InstrumentType,
+    _loopDurationTicks: number
+  ) {
+    // Stop any preview first
+    stopPreview()
+
+    const isDrums = instrumentId === 'drums'
+    const stepTicks = Tone.Time('16n').toTicks()
+
+    // Clear the grid first
+    if (isDrums) {
+      mode.value = 'drums'
+      pattern.value = createEmptyPattern(DRUM_ROWS.length, stepCount.value)
+      drumsPattern = createEmptyPattern(DRUM_ROWS.length, stepCount.value)
+
+      // Build drum sound to row index map
+      const drumSoundToRow: Record<string, number> = {}
+      DRUM_ROWS.forEach((row, index) => {
+        drumSoundToRow[row.sound] = index
+      })
+
+      // Process only noteOn events (drums don't use noteOff)
+      events
+        .filter((e) => e.type === 'noteOn')
+        .forEach((event) => {
+          const rowIndex = drumSoundToRow[event.note]
+          if (rowIndex !== undefined) {
+            const stepIndex = Math.round(event.time / stepTicks)
+            if (stepIndex >= 0 && stepIndex < stepCount.value) {
+              const cell = pattern.value[rowIndex]?.[stepIndex]
+              if (cell) {
+                cell.active = true
+                cell.velocity = event.velocity
+              }
+            }
+          }
+        })
+
+      // Save to drums pattern
+      drumsPattern = JSON.parse(JSON.stringify(pattern.value))
+    } else {
+      // Melodic mode
+      mode.value = 'melodic'
+      melodicInstrument.value = instrumentId as Exclude<InstrumentType, 'drums'>
+
+      // Use chromatic scale for maximum flexibility
+      scaleName.value = 'chromatic'
+
+      // Analyze notes to determine octave from the lowest note
+      const noteRegex = /^([A-G]#?)(\d)$/
+      let lowestOctave = 4
+      events
+        .filter((e) => e.type === 'noteOn')
+        .forEach((e) => {
+          const match = e.note.match(noteRegex)
+          if (match && match[2]) {
+            lowestOctave = Math.min(lowestOctave, parseInt(match[2], 10))
+          }
+        })
+      octave.value = lowestOctave
+
+      // Get scale notes for mapping
+      const scaleNotes = getScaleNotesForGrid(rootNote.value, scaleName.value, octave.value)
+      const noteToRow: Record<string, number> = {}
+      scaleNotes.forEach((note, index) => {
+        noteToRow[note] = index
+      })
+
+      // Create empty pattern
+      pattern.value = createEmptyPattern(scaleNotes.length, stepCount.value)
+
+      // Process noteOn events
+      events
+        .filter((e) => e.type === 'noteOn')
+        .forEach((event) => {
+          const rowIndex = noteToRow[event.note]
+          if (rowIndex !== undefined) {
+            const stepIndex = Math.round(event.time / stepTicks)
+            if (stepIndex >= 0 && stepIndex < stepCount.value) {
+              const cell = pattern.value[rowIndex]?.[stepIndex]
+              if (cell) {
+                cell.active = true
+                cell.velocity = event.velocity
+              }
+            }
+          }
+        })
+
+      // Save to melodic patterns
+      melodicPatterns.set(scaleName.value, JSON.parse(JSON.stringify(pattern.value)))
+    }
+  }
+
   // Note: mode/scale changes are handled directly in setMode/setScale
   // which preserve playback state
 
@@ -473,5 +569,6 @@ export const useGridStore = defineStore('grid', () => {
     getStateForSharing,
     hydrateFromState,
     setGridLayerCounter,
+    loadFromMidiEvents,
   }
 })

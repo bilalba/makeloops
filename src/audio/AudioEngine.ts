@@ -50,6 +50,11 @@ class AudioEngine {
     Tone.getTransport().start()
   }
 
+  // Start with a scheduled delay (for precise recording sync)
+  startAt(offset: string = "+0.1"): void {
+    Tone.getTransport().start(offset)
+  }
+
   stop(): void {
     Tone.getTransport().stop()
     Tone.getTransport().position = 0
@@ -76,11 +81,22 @@ class AudioEngine {
   }
 
   async startRecording(): Promise<void> {
+    // If recorder is in a bad state, recreate it
+    if (this.recorder.state !== 'stopped') {
+      this.recorder.dispose()
+      this.recorder = new Tone.Recorder()
+      this.masterGain.connect(this.recorder)
+      // Wait for connection to be established
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
     await this.recorder.start()
   }
 
   async stopRecording(): Promise<Blob> {
-    return await this.recorder.stop()
+    if (this.recorder.state === 'started') {
+      return await this.recorder.stop()
+    }
+    return new Blob([], { type: 'audio/wav' })
   }
 
   scheduleRepeat(

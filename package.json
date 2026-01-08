@@ -13,7 +13,6 @@
     "@vueuse/core": "^14.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lamejs": "^1.2.1",
     "lucide-vue-next": "^0.562.0",
     "lz-string": "^1.5.0",
     "pinia": "^3.0.4",

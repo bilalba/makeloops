@@ -1,4 +1,5 @@
 import { onUnmounted, ref, watch } from 'vue'
+import * as Tone from 'tone'
 import audioEngine from '@/audio/AudioEngine'
 
 type PlaybackCursorOptions = {
@@ -18,9 +19,11 @@ export function usePlaybackCursor(options: PlaybackCursorOptions) {
       return
     }
 
-    const globalTicks = audioEngine.getPositionTicks()
-    const positionInLoop = globalTicks % effectiveDuration
-    cursorPosition.value = (positionInLoop / effectiveDuration) * 100
+    // Use seconds for consistency with Tone.Part looping
+    const effectiveDurationSeconds = audioEngine.ticksToSeconds(effectiveDuration)
+    const globalSeconds = Tone.getTransport().seconds
+    const positionInLoop = globalSeconds % effectiveDurationSeconds
+    cursorPosition.value = (positionInLoop / effectiveDurationSeconds) * 100
   }
 
   const animate = () => {

@@ -26,8 +26,12 @@ export const useAudioStore = defineStore('audio', () => {
     audioEngine.setBpm(value)
   }
 
-  function play() {
-    audioEngine.start()
+  function play(offset?: string) {
+    if (offset) {
+      audioEngine.startAt(offset)
+    } else {
+      audioEngine.start()
+    }
     transportState.value = 'playing'
   }
 
