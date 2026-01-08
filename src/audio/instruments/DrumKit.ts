@@ -6,6 +6,7 @@ import type { DrumSound } from '@/types'
 class FilteredNoiseSynth {
   private noise: Tone.NoiseSynth
   private filter: Tone.Filter
+  private lastTriggerTime: number = -1
 
   constructor(options: { filterFreq: number; filterQ: number; decay: number; release: number }) {
     this.filter = new Tone.Filter({
@@ -21,9 +22,15 @@ class FilteredNoiseSynth {
   }
 
   triggerAttackRelease(time?: number, velocity?: number) {
+    let t = time ?? Tone.now()
+    // Ensure time is strictly greater than last trigger to avoid Tone.js error
+    if (t <= this.lastTriggerTime) {
+      t = this.lastTriggerTime + 0.001
+    }
+    this.lastTriggerTime = t
     // Stop any previous sound to prevent voice stacking
-    this.noise.triggerRelease(time)
-    this.noise.triggerAttack(time, velocity)
+    this.noise.triggerRelease(t)
+    this.noise.triggerAttack(t, velocity)
   }
 
   dispose() {
@@ -34,6 +41,7 @@ class FilteredNoiseSynth {
 
 export class DrumKit {
   private synths: Map<DrumSound, Tone.Synth | Tone.MembraneSynth | Tone.NoiseSynth | FilteredNoiseSynth>
+  private lastTriggerTimes: Map<DrumSound, number> = new Map()
 
   constructor() {
     this.synths = new Map()
@@ -129,8 +137,15 @@ export class DrumKit {
     const synth = this.synths.get(sound)
     if (!synth) return
 
-    const t = time ?? Tone.now()
+    let t = time ?? Tone.now()
     const vel = Math.max(0, Math.min(1, velocity))
+
+    // For noise-based synths, ensure time is strictly greater than last trigger
+    const lastTime = this.lastTriggerTimes.get(sound) ?? -1
+    if (t <= lastTime) {
+      t = lastTime + 0.001
+    }
+    this.lastTriggerTimes.set(sound, t)
 
     if (synth instanceof Tone.MembraneSynth) {
       const pitchMap: Record<string, string> = {

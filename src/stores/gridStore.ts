@@ -411,11 +411,11 @@ export const useGridStore = defineStore('grid', () => {
     // Stop any preview first
     stopPreview()
 
-    // Restore saved patterns
-    drumsPattern = state.drumsPattern
+    // Restore saved patterns (deep clone to ensure reactivity)
+    drumsPattern = JSON.parse(JSON.stringify(state.drumsPattern))
     melodicPatterns.clear()
     for (const [scale, pat] of Object.entries(state.melodicPatterns)) {
-      melodicPatterns.set(scale as ScaleName, pat)
+      melodicPatterns.set(scale as ScaleName, JSON.parse(JSON.stringify(pat)))
     }
 
     // Restore settings
@@ -424,7 +424,8 @@ export const useGridStore = defineStore('grid', () => {
     octave.value = state.octave
     melodicInstrument.value = state.melodicInstrument
     mode.value = state.mode
-    pattern.value = state.pattern
+    // Deep clone pattern to trigger Vue reactivity
+    pattern.value = JSON.parse(JSON.stringify(state.pattern))
   }
 
   // Update grid layer counter (used when loading shared state)

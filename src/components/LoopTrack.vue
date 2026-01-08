@@ -145,7 +145,6 @@ const eventBlocks = computed(() => {
   const displayRange = Math.max(minRange, actualRange)
   const midPoint = (minMidi + maxMidi) / 2
   const displayMin = midPoint - displayRange / 2
-  const displayMax = midPoint + displayRange / 2
 
   // Fixed lane height for consistent look
   const laneHeight = 100 / displayRange
@@ -440,6 +439,15 @@ function handleEdit() {
         <Button
           variant="secondary"
           size="sm"
+          class="h-6 w-6 p-0 text-[10px]"
+          @click="extendFromStart"
+          title="Extend loop by 1 bar from start"
+        >
+          <Plus class="h-3 w-3" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="sm"
           :class="cn(
             'h-6 w-6 p-0 text-[10px]',
             !canShrinkFromStart && 'opacity-30 cursor-not-allowed'
@@ -449,15 +457,6 @@ function handleEdit() {
           title="Shrink loop by 1 bar from start"
         >
           <Minus class="h-3 w-3" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          class="h-6 w-6 p-0 text-[10px]"
-          @click="extendFromStart"
-          title="Extend loop by 1 bar from start"
-        >
-          <Plus class="h-3 w-3" />
         </Button>
       </div>
 

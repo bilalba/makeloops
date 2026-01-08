@@ -7,6 +7,7 @@ import { useAudioStore } from '@/stores/audioStore'
 import { useInstrumentStore } from '@/stores/instrumentStore'
 import { useLooperStore } from '@/stores/looperStore'
 import { useGridStore } from '@/stores/gridStore'
+import { useSessionStore, type SavedSession } from '@/stores/sessionStore'
 import type { DrumSound } from '@/types'
 
 import Drumpad from '@/components/Drumpad.vue'
@@ -18,6 +19,9 @@ import RecordControls from '@/components/RecordControls.vue'
 import LooperPanel from '@/components/LooperPanel.vue'
 import InputModeTabs from '@/components/InputModeTabs.vue'
 import GridSequencer from '@/components/GridSequencer.vue'
+import SessionSaveButton from '@/components/SessionSaveButton.vue'
+import SessionLoadButton from '@/components/SessionLoadButton.vue'
+import SessionIndicator from '@/components/SessionIndicator.vue'
 import { Card } from '@/components/ui/card'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
@@ -29,11 +33,15 @@ const audioStore = useAudioStore()
 const instrumentStore = useInstrumentStore()
 const looperStore = useLooperStore()
 const gridStore = useGridStore()
+const sessionStore = useSessionStore()
 const { generateShareLink, parseShareLink, hasShareLink, clearShareLink, copyToClipboard } = useShareableLink()
 
 const drumpadRef = ref<InstanceType<typeof Drumpad> | null>(null)
 const melodicPadRef = ref<InstanceType<typeof MelodicPad> | null>(null)
 const inputMode = ref<'keyboard' | 'grid'>('grid')
+
+// Pending session to restore after audio init
+const pendingSessionRestore = ref<SavedSession | null>(null)
 
 // Share button state
 const shareStatus = ref<'idle' | 'success' | 'error'>('idle')
@@ -57,7 +65,7 @@ async function handleShare() {
   }, 2000)
 }
 
-// Load state from share link on mount
+// Load state from share link or saved session on mount
 onMounted(async () => {
   if (hasShareLink()) {
     const state = parseShareLink()
@@ -84,6 +92,21 @@ onMounted(async () => {
 
       // Clear the share link from URL to allow normal navigation
       clearShareLink()
+
+      // Clear current session since we loaded from share link
+      sessionStore.clearCurrentSession()
+    }
+  } else if (sessionStore.currentSessionId) {
+    // Restore the last saved session
+    const session = sessionStore.loadSession(sessionStore.currentSessionId)
+    if (session) {
+      // Restore grid and layer data immediately (no audio needed)
+      if (session.grid) {
+        gridStore.hydrateFromState(session.grid)
+      }
+
+      // Store session data to apply after audio init on first interaction
+      pendingSessionRestore.value = session
     }
   }
 })
@@ -93,6 +116,23 @@ async function handleFirstInteraction() {
   if (!initialized.value) {
     await initAudio()
     await audioStore.init()
+
+    // Apply pending session restore now that audio is ready
+    if (pendingSessionRestore.value) {
+      const session = pendingSessionRestore.value
+      audioStore.stop()
+      audioStore.setBpm(session.bpm)
+
+      // Hydrate layers (requires audio for scheduling)
+      if (session.layers.length > 0) {
+        const { maxGridId } = looperStore.hydrateFromState(session.layers)
+        if (maxGridId > 0) {
+          gridStore.setGridLayerCounter(maxGridId)
+        }
+      }
+
+      pendingSessionRestore.value = null
+    }
   }
 }
 
@@ -215,24 +255,29 @@ async function handleDrumTrigger(sound: DrumSound) {
 
       <!-- Main Content -->
       <main class="flex-1 p-6 flex flex-col gap-6 max-w-[1200px] mx-auto w-full">
-        <!-- Input Mode Tabs + Share -->
+        <!-- Input Mode Tabs + Session Controls -->
         <div class="flex items-center justify-between">
           <InputModeTabs v-model="inputMode" />
-          <Button
-            variant="outline"
-            size="sm"
-            :class="cn(
-              'transition-all',
-              shareStatus === 'success' && 'text-green-500 border-green-500/50',
-              shareStatus === 'error' && 'text-destructive border-destructive/50'
-            )"
-            @click="handleShare"
-          >
-            <Check v-if="shareStatus === 'success'" class="h-4 w-4 mr-2" />
-            <X v-else-if="shareStatus === 'error'" class="h-4 w-4 mr-2" />
-            <Share2 v-else class="h-4 w-4 mr-2" />
-            {{ shareStatus === 'success' ? 'Link Copied!' : shareStatus === 'error' ? 'Copy Failed' : 'Share loop' }}
-          </Button>
+          <div class="flex items-center gap-2">
+            <SessionIndicator />
+            <SessionSaveButton />
+            <SessionLoadButton />
+            <Button
+              variant="outline"
+              size="sm"
+              :class="cn(
+                'transition-all',
+                shareStatus === 'success' && 'text-green-500 border-green-500/50',
+                shareStatus === 'error' && 'text-destructive border-destructive/50'
+              )"
+              @click="handleShare"
+            >
+              <Check v-if="shareStatus === 'success'" class="h-4 w-4 mr-2" />
+              <X v-else-if="shareStatus === 'error'" class="h-4 w-4 mr-2" />
+              <Share2 v-else class="h-4 w-4 mr-2" />
+              {{ shareStatus === 'success' ? 'Link Copied!' : shareStatus === 'error' ? 'Copy Failed' : 'Share' }}
+            </Button>
+          </div>
         </div>
 
         <!-- Pads Section - Keyboard Mode -->

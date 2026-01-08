@@ -21,7 +21,15 @@ export function usePlaybackCursor(options: PlaybackCursorOptions) {
 
     // Use seconds for consistency with Tone.Part looping
     const effectiveDurationSeconds = audioEngine.ticksToSeconds(effectiveDuration)
-    const globalSeconds = Tone.getTransport().seconds
+
+    // Account for audio output latency so cursor matches what we hear
+    // lookAhead: time Tone schedules audio ahead to prevent glitches
+    // outputLatency: hardware/OS audio buffer delay
+    const lookAhead = Tone.getContext().lookAhead
+    const outputLatency = (Tone.getContext().rawContext as AudioContext)?.outputLatency || 0
+    const totalLatency = lookAhead + outputLatency
+
+    const globalSeconds = Math.max(0, Tone.getTransport().seconds - totalLatency)
     const positionInLoop = globalSeconds % effectiveDurationSeconds
     cursorPosition.value = (positionInLoop / effectiveDurationSeconds) * 100
   }
