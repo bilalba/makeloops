@@ -8,7 +8,7 @@ import GridCell from './GridCell.vue'
 import GridControls from './GridControls.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { Play, Square, Trash2, Plus, ChevronDown } from 'lucide-vue-next'
+import { Play, Square, Trash2, Plus, ChevronDown, Check } from 'lucide-vue-next'
 
 const gridStore = useGridStore()
 const looperStore = useLooperStore()
@@ -16,11 +16,24 @@ const audioStore = useAudioStore()
 const { initAudio } = useAudioContext()
 
 const showPlayDropdown = ref(false)
+const addStatus = ref<'idle' | 'success'>('idle')
+const addStatusTimeout = ref<number | null>(null)
+
+function showAddSuccess() {
+  addStatus.value = 'success'
+  if (addStatusTimeout.value) {
+    clearTimeout(addStatusTimeout.value)
+  }
+  addStatusTimeout.value = window.setTimeout(() => {
+    addStatus.value = 'idle'
+  }, 2000)
+}
 
 function handleAddToLooper() {
   const layer = gridStore.createLoopLayer()
   if (layer) {
     looperStore.addLayer(layer)
+    showAddSuccess()
   }
 }
 
@@ -210,13 +223,18 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
       <div class="flex-1" />
 
       <Button
-        variant="default"
+        :variant="addStatus === 'success' ? 'outline' : 'default'"
         size="sm"
         :disabled="!hasActiveCells"
+        :class="cn(
+          'transition-all',
+          addStatus === 'success' && 'text-green-500 border-green-500/50'
+        )"
         @click="handleAddToLooper"
       >
-        <Plus class="h-4 w-4 mr-2" />
-        Add to Looper
+        <Check v-if="addStatus === 'success'" class="h-4 w-4 mr-2" />
+        <Plus v-else class="h-4 w-4 mr-2" />
+        {{ addStatus === 'success' ? 'Added!' : 'Add to Looper' }}
       </Button>
     </div>
   </div>
