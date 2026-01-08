@@ -68,16 +68,51 @@ const cursorLeftPercent = computed(() => {
   return Math.max(0, Math.min(100, cursorPosition.value))
 })
 
+// Drum sounds ordered from low (bottom) to high (top) for piano-roll style visualization
+const drumLanes: Record<string, number> = {
+  'kick': 0,
+  'tom-low': 1,
+  'tom-mid': 2,
+  'tom-high': 3,
+  'snare': 4,
+  'clap': 5,
+  'rim': 6,
+  'hihat-closed': 7,
+  'hihat-open': 8,
+  'crash': 9,
+}
+const totalDrumLanes = 10
+
+const isDrumLayer = computed(() => props.layer.instrumentId === 'drums')
+
 // Event blocks with note duration (width based on noteOn->noteOff pairing)
 const eventBlocks = computed(() => {
   if (!props.layer.events.length || !effectiveDurationTicks.value) return []
 
-  const blocks: { left: number; width: number; note: string }[] = []
+  const blocks: { left: number; width: number; note: string; top: number; height: number }[] = []
   const events = props.layer.events
   const cropStart = props.layer.cropStart
   const cropEnd = props.layer.cropEnd
   const duration = effectiveDurationTicks.value
 
+  // For drums, use fixed narrow width and vertical positioning by drum type
+  if (isDrumLayer.value) {
+    const laneHeight = 100 / totalDrumLanes
+    events
+      .filter(e => e.type === 'noteOn' && e.time >= cropStart && e.time < cropEnd)
+      .forEach((event) => {
+        const leftTicks = event.time - cropStart
+        const left = (leftTicks / duration) * 100
+        const laneIndex = drumLanes[event.note] ?? 5 // default to middle if unknown
+        // Invert: low drums at bottom (high top%), high drums at top (low top%)
+        const top = (totalDrumLanes - 1 - laneIndex) * laneHeight + 2 // +2px padding
+        const height = laneHeight - 2 // slight gap between lanes
+        blocks.push({ left, width: 0.8, note: event.note, top, height })
+      })
+    return blocks
+  }
+
+  // For melodic instruments, use noteOn->noteOff pairing for width
   // Build a map of noteOn events to their corresponding noteOff times
   const noteOnTimes: Map<string, number[]> = new Map()
 
@@ -114,7 +149,7 @@ const eventBlocks = computed(() => {
             // Minimum width of 1% for very short notes
             const width = Math.max(1, (widthTicks / duration) * 100)
 
-            blocks.push({ left, width, note: event.note })
+            blocks.push({ left, width, note: event.note, top: 12.5, height: 75 })
           }
           activeNotes.set(event.note, stack)
         }
@@ -131,7 +166,7 @@ const eventBlocks = computed(() => {
         const left = (leftTicks / duration) * 100
         const width = Math.max(1, (widthTicks / duration) * 100)
 
-        blocks.push({ left, width, note })
+        blocks.push({ left, width, note, top: 12.5, height: 75 })
       }
     })
   })
@@ -296,8 +331,14 @@ function extendLayer() {
         <div
           v-for="(block, i) in eventBlocks"
           :key="i"
-          class="absolute top-2 h-[calc(100%-16px)] bg-primary/60 rounded-sm z-[4] pointer-events-none"
-          :style="{ left: `${block.left}%`, width: `${block.width}%`, minWidth: '3px' }"
+          class="absolute bg-primary/60 rounded-sm z-[4] pointer-events-none"
+          :style="{
+            left: `${block.left}%`,
+            width: `${block.width}%`,
+            minWidth: '3px',
+            top: `${block.top}%`,
+            height: `${block.height}%`
+          }"
         />
 
         <!-- Playback cursor -->
