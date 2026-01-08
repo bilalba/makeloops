@@ -193,14 +193,12 @@ const hasLoops = computed(() => looperStore.layers.length > 0)
         Clear
       </Button>
 
-      <div class="flex-1" />
-
       <Button
         :variant="addStatus === 'success' ? 'outline' : 'default'"
         size="sm"
         :disabled="!hasActiveCells"
         :class="cn(
-          'transition-all',
+          'transition-all ml-auto',
           addStatus === 'success' && 'text-green-500 border-green-500/50'
         )"
         @click="handleAddToLooper"
