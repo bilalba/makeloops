@@ -6,7 +6,7 @@ export interface ScaleDefinition {
 }
 
 export const SCALE_DEFINITIONS: Record<ScaleName, ScaleDefinition> = {
-  major: { name: 'Major', intervals: [0, 2, 4, 5, 7, 9, 11] },
+  major: { name: 'Major', intervals: [0, 2, 4, 5, 7, 9, 11, 12] },
   minor: { name: 'Minor', intervals: [0, 2, 3, 5, 7, 8, 10] },
   'pentatonic-major': { name: 'Pentatonic Major', intervals: [0, 2, 4, 7, 9] },
   'pentatonic-minor': { name: 'Pentatonic Minor', intervals: [0, 3, 5, 7, 10] },
